@@ -25,12 +25,19 @@ function parsePlatforms(value: string): Platform[] {
 program
   .command("login")
   .alias("setup")
-  .description("Store the API URL and workspace key (or skip this and set FADEN_API_KEY)")
+  .description("Log in via the browser and mint a workspace API key (or pass --key to store one directly)")
   .option("-u, --url <url>", "API base URL", "https://api.faden.io")
-  .requiredOption("-k, --key <apiKey>", "workspace API key (fdn_live_…)")
-  .action(async (opts: { url: string; key: string }) => {
-    const path = await saveConfig({ apiUrl: opts.url.replace(/\/$/, ""), apiKey: opts.key });
-    console.log(`Saved credentials to ${path}`);
+  .option("-k, --key <apiKey>", "workspace API key (fdn_live_…) — skips the browser flow")
+  .option("--app <url>", "dashboard base URL (for the browser flow)", "https://app.faden.io")
+  .action(async (opts: { url: string; key?: string; app: string }) => {
+    let apiKey = opts.key;
+    let workspace: string | undefined;
+    if (!apiKey) {
+      const { browserLogin } = await import("./browser-login.js");
+      ({ apiKey, workspace } = await browserLogin(opts.app.replace(/\/$/, "")));
+    }
+    const path = await saveConfig({ apiUrl: opts.url.replace(/\/$/, ""), apiKey });
+    console.log(`Logged in${workspace ? ` to workspace "${workspace}"` : ""} — credentials saved to ${path}`);
   });
 
 const accounts = program.command("accounts").description("Manage connected social accounts");
