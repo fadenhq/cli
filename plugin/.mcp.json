@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "faden": {
+      "command": "npx",
+      "args": ["-y", "@fadenhq/cli", "mcp"],
+      "env": {
+        "FADEN_API_KEY": "${FADEN_API_KEY}",
+        "FADEN_API_URL": "${FADEN_API_URL:-https://api.faden.io}"
+      }
+    }
+  }
+}

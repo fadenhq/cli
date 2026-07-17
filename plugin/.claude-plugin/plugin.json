@@ -1,0 +1,13 @@
+{
+  "name": "faden",
+  "version": "0.1.0",
+  "description": "Publish and schedule social-media posts across X, LinkedIn, Facebook, Instagram and Threads through the faden API.",
+  "author": {
+    "name": "Timur Olzhabayev",
+    "url": "https://github.com/tolzhabayev"
+  },
+  "homepage": "https://faden.io",
+  "repository": "https://github.com/fadenhq/cli",
+  "license": "MIT",
+  "keywords": ["social-media", "publishing", "cross-posting", "mcp", "scheduling"]
+}

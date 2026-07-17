@@ -1,0 +1,57 @@
+{
+  "name": "@fadenhq/cli",
+  "version": "0.1.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "description": "Unified social-media publishing for agents and developers: one command/MCP tool posts across X, LinkedIn, Facebook, Instagram, Threads and more.",
+  "type": "module",
+  "bin": {
+    "faden": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "node --import tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fadenhq/cli.git",
+    "directory": "apps/cli"
+  },
+  "homepage": "https://faden.io",
+  "license": "AGPL-3.0-only",
+  "keywords": [
+    "social-media",
+    "publishing",
+    "mcp",
+    "agents",
+    "x",
+    "linkedin",
+    "instagram",
+    "facebook",
+    "threads",
+    "cross-posting"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "commander": "^15.0.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@fadenhq/shared": "*",
+    "@types/node": "^26.1.1",
+    "tsup": "^8.5.0",
+    "tsx": "^4.19.2",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

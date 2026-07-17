@@ -1,0 +1,22 @@
+{
+  "name": "faden-cli",
+  "version": "0.0.0",
+  "private": true,
+  "description": "faden CLI + MCP server: unified social-media publishing for agents and developers",
+  "license": "AGPL-3.0-only",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}

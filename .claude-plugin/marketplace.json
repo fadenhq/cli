@@ -1,0 +1,14 @@
+{
+  "name": "faden",
+  "owner": {
+    "name": "Timur Olzhabayev",
+    "url": "https://github.com/fadenhq"
+  },
+  "plugins": [
+    {
+      "name": "faden",
+      "source": "./plugin",
+      "description": "Publish and schedule social-media posts across X, LinkedIn, Facebook, Instagram and Threads through the faden API: MCP tools + a posting skill."
+    }
+  ]
+}
