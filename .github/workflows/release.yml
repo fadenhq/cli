@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: read
+      contents: write # create the GitHub release
     steps:
       - uses: actions/checkout@v7
 
@@ -45,5 +45,29 @@ jobs:
             exit 1
           fi
 
+      # A release with no changelog entry is a release nobody can read. Fail here,
+      # before publishing, since npm versions cannot be reused once taken.
+      - name: Extract changelog section
+        run: |
+          pkg=$(node -p "require('./apps/cli/package.json').version")
+          awk -v h="## [$pkg]" 'index($0, h) == 1 { found = 1; next }
+                                /^## \[/ { found = 0 }
+                                found' apps/cli/CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          if [ ! -s "$RUNNER_TEMP/notes.md" ] || ! grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md"; then
+            echo "apps/cli/CHANGELOG.md has no '## [$pkg]' section with content" >&2
+            exit 1
+          fi
+
       - name: Publish
         run: npm publish -w @fadenhq/cli
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pkg=$(node -p "require('./apps/cli/package.json').version")
+          printf '\n---\n\n`npm install -g @fadenhq/cli@%s` — [npm](https://www.npmjs.com/package/@fadenhq/cli/v/%s)\n' \
+            "$pkg" "$pkg" >> "$RUNNER_TEMP/notes.md"
+          gh release create "$GITHUB_REF_NAME" \
+            --title "faden CLI $pkg" \
+            --notes-file "$RUNNER_TEMP/notes.md"

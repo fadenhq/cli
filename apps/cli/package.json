@@ -10,7 +10,8 @@
     "faden": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsup",
