@@ -1,11 +1,19 @@
-import { readFile } from "node:fs/promises";
-import { basename } from "node:path";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { createPostSchema, PLATFORMS, POST_STATUSES, updatePostSchema } from "@fadenhq/shared";
+import {
+  createPostSchema,
+  PLATFORM_CONSTRAINTS,
+  PLATFORMS,
+  POST_STATUSES,
+  setQueueSchema,
+  updatePostSchema,
+  type Platform,
+} from "@fadenhq/shared";
 import { z } from "zod";
 import type { ApiClient } from "./client.js";
+import { uploadMedia } from "./media.js";
+import { preflight } from "./preflight.js";
 
 /**
  * MCP server as a thin wrapper over the REST API: every tool is one endpoint call, tool input
@@ -38,12 +46,27 @@ export const TOOLS: ToolDef[] = [
   {
     name: "create_post",
     description:
-      "Create or schedule a unified social-media post that fans out to every listed platform. " +
-      "Omit scheduledFor to publish immediately; set draft: true to store without publishing. " +
-      "Use platformConfigurations/accountConfigurations to tailor content per target " +
-      "(merge precedence: account > platform > base). Returns postId — poll get_post_status for per-target results.",
-    schema: createPostSchema,
-    handler: (client, args) => client.post("/v1/posts", args),
+      "Create or schedule a unified social-media post that fans out to every listed platform, and " +
+      "to every active account of each (e.g. both connected Facebook Pages). Pass accountIds to " +
+      "narrow the fan-out to specific accounts. Omit scheduledFor to publish immediately; set " +
+      "draft: true to store without publishing. Use platformConfigurations/accountConfigurations " +
+      "to tailor content per target (merge precedence: account > platform > base). Returns postId — " +
+      "poll get_post_status for per-target results. Pass idempotencyKey to make retries safe: " +
+      "replaying a key returns the original post (replayed: true) instead of publishing twice.",
+    schema: createPostSchema.extend({
+      idempotencyKey: z
+        .string()
+        .min(1)
+        .max(255)
+        .optional()
+        .describe("Caller-chosen key, unique per intended post; replaying it never creates a second post"),
+    }),
+    handler: (client, args) => {
+      // The key travels as a header, not a field — it identifies the request, not the post.
+      const { idempotencyKey, ...body } = args;
+      if (!idempotencyKey) return client.post("/v1/posts", body);
+      return client.post("/v1/posts", body, { headers: { "idempotency-key": idempotencyKey as string } });
+    },
   },
   {
     name: "get_post_status",
@@ -153,33 +176,70 @@ export const TOOLS: ToolDef[] = [
         mimeType: z.string().optional().describe("Override the extension-based MIME type guess"),
       })
       .strict(),
-    handler: async (client, args) => {
-      const bytes = await readFile(args.filePath as string);
-      const mimeType = (args.mimeType as string | undefined) ?? guessMime(args.filePath as string);
-      const reserved = await client.post<{ mediaId: string; publicUrl: string }>("/v1/media", {
-        mimeType,
-        sizeBytes: bytes.byteLength,
-      });
-      await client.putRaw(`/v1/media/${reserved.mediaId}/content`, bytes);
-      return { mediaId: reserved.mediaId, publicUrl: reserved.publicUrl, mimeType, fileName: basename(args.filePath as string) };
+    handler: (client, args) =>
+      uploadMedia(client, args.filePath as string, args.mimeType as string | undefined),
+  },
+  {
+    name: "get_usage",
+    description:
+      "Workspace consumption against the plan's quotas. Check this before a bulk run: a post that " +
+      "would exceed the quota fails with quota_exceeded rather than queueing.",
+    schema: z.object({}).strict(),
+    handler: (client) => client.get("/v1/usage"),
+  },
+  {
+    name: "list_queue_slots",
+    description:
+      "The recurring posting-queue slots and the next free one. create_post with useQueue: true " +
+      "fills the next free slot, and fails with queue_not_configured when no slots exist.",
+    schema: z.object({}).strict(),
+    handler: (client) => client.get("/v1/queue"),
+  },
+  {
+    name: "set_queue_slots",
+    description:
+      "REPLACE every queue slot with the ones given (this is a PUT, not an append) — read " +
+      "list_queue_slots first. Times are wall-clock in the given IANA timezone.",
+    schema: setQueueSchema,
+    handler: (client, args) => client.put("/v1/queue", args),
+  },
+  {
+    name: "list_platform_constraints",
+    description:
+      "Per-platform limits: character ceiling, media count, accepted image/video types and byte " +
+      "sizes. Answered locally with no API call — size content with this instead of learning the " +
+      "limit from a rejected create_post.",
+    schema: z
+      .object({ platform: z.enum(PLATFORMS).optional().describe("Only this platform; omit for all") })
+      .strict(),
+    handler: (_client, args) => {
+      const wanted = args.platform ? [args.platform as Platform] : [...PLATFORMS];
+      return Promise.resolve(wanted.map((platform) => ({ platform, ...PLATFORM_CONSTRAINTS[platform] })));
     },
   },
+  {
+    name: "validate_post",
+    description:
+      "Dry-run a post against every target platform's constraints without creating anything. " +
+      "Runs locally (no API call), so it is free to call before every create_post.",
+    schema: z
+      .object({
+        content: z.string().describe("The post text"),
+        platforms: z.array(z.enum(PLATFORMS)).min(1),
+        mediaUrls: z.array(z.string().url()).optional(),
+        boardId: z.string().optional().describe("Pinterest destination board (required for pinterest)"),
+        locationId: z.string().optional().describe("Google Business destination (required for google_business)"),
+      })
+      .strict(),
+    handler: (_client, args) =>
+      Promise.resolve(
+        preflight(args.platforms as Platform[], args.content as string, (args.mediaUrls as string[]) ?? [], {
+          ...(args.boardId ? { pinterest: { boardId: args.boardId as string } } : {}),
+          ...(args.locationId ? { google_business: { locationId: args.locationId as string } } : {}),
+        }),
+      ),
+  },
 ];
-
-function guessMime(filePath: string): string {
-  const ext = filePath.split(".").pop()?.toLowerCase();
-  const map: Record<string, string> = {
-    jpg: "image/jpeg",
-    jpeg: "image/jpeg",
-    png: "image/png",
-    webp: "image/webp",
-    gif: "image/gif",
-    mp4: "video/mp4",
-    mov: "video/quicktime",
-    webm: "video/webm",
-  };
-  return map[ext ?? ""] ?? "application/octet-stream";
-}
 
 /** JSON Schema for the tool listing, derived from the same Zod schema that validates calls. */
 export function toolInputJsonSchema(tool: ToolDef): Record<string, unknown> {

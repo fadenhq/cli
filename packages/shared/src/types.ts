@@ -36,6 +36,8 @@ export interface TargetResult {
   status: TargetStatus;
   /** Native id returned by the platform on success (tweet id, share urn, video id, …). */
   nativePostId?: string;
+  /** Public URL of the post on the platform, when one exists. */
+  permalink?: string;
   /** Stable machine-readable code on failure, e.g. `rate_limited`, `media_invalid`, `auth_expired`. */
   errorCode?: string;
   /** Human-readable diagnostic detail on failure. */
@@ -58,6 +60,8 @@ export interface PublishRequest {
 /** Outcome a connector returns from `publish`. */
 export interface PublishResult {
   nativePostId?: string;
+  /** Public URL of the post, when only the platform can supply it (see `postPermalink`). */
+  permalink?: string;
   errorCode?: string;
   errorDetail?: string;
   /** On `rate_limited`: seconds the platform asked us to wait (Retry-After / reset headers). */

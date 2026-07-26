@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { HANDLE_MAX_LENGTH, handlePattern } from "./handles.js";
+import { BILLING_MODES } from "./plans.js";
 import { PLATFORMS } from "./platforms.js";
 import { POST_STATUSES, WEBHOOK_EVENTS } from "./types.js";
 
@@ -127,6 +129,13 @@ export const createPostSchema = z
   .object({
     content: z.string().max(63206).default(""),
     platforms: z.array(platformSchema).min(1),
+    /**
+     * Narrow the fan-out to specific connected accounts, each named by its faden account id or its
+     * workspace handle. Omit to fan out to every active account of each targeted platform — the
+     * default, so a workspace with two Facebook Pages posts to both unless it names one here. Every
+     * entry must resolve to an active account on a targeted platform.
+     */
+    accountIds: z.array(z.string().min(1)).min(1).optional(),
     mediaUrls: z.array(mediaUrlSchema).max(10).default([]),
     scheduledFor: z.string().datetime({ offset: true }).optional(),
     timezone: timezoneSchema.optional(),
@@ -173,6 +182,9 @@ export const updatePostSchema = z
   .object({
     content: z.string().max(63206).optional(),
     platforms: z.array(platformSchema).min(1).optional(),
+    /** Rebuild targets to these accounts (see createPost). Provide with or without `platforms`;
+     * either present rebuilds the (still pending) target set. Omit both to keep current targets. */
+    accountIds: z.array(z.string().min(1)).min(1).optional(),
     mediaUrls: z.array(mediaUrlSchema).max(10).optional(),
     scheduledFor: z.string().datetime({ offset: true }).optional(),
     timezone: timezoneSchema.optional(),
@@ -232,6 +244,18 @@ export const credentialsConnectSchema = z
 
 export type CredentialsConnectInput = z.infer<typeof credentialsConnectSchema>;
 
+/** The handle rules from handles.ts as a validator; that module stays zod-free on purpose. */
+export const accountHandleSchema = z
+  .string()
+  .min(1)
+  .max(HANDLE_MAX_LENGTH)
+  .regex(handlePattern, "handle must be a slug: lowercase letters, digits and single hyphens (no spaces or symbols)");
+
+/** Body of `PATCH /v1/accounts/{id}`: rename an account's workspace-unique handle. */
+export const updateAccountSchema = z.object({ handle: accountHandleSchema }).strict();
+
+export type UpdateAccountInput = z.infer<typeof updateAccountSchema>;
+
 /** Body of `POST /v1/workspaces` (admin bootstrap). */
 export const createWorkspaceSchema = z
   .object({
@@ -240,6 +264,12 @@ export const createWorkspaceSchema = z
     ownerEmail: z.string().email().optional(),
   })
   .strict();
+
+/** Body of `POST /v1/me/workspaces` (self-serve signup, #84). */
+export const createOwnedWorkspaceSchema = z.object({ name: z.string().min(1).max(120) }).strict();
+
+/** Body of `POST /v1/admin/workspaces/{id}/billing-mode` (operator sandbox toggle, #23). */
+export const setBillingModeSchema = z.object({ mode: z.enum(BILLING_MODES) }).strict();
 
 /** Body of `POST /v1/keys`: mint a named workspace API key. */
 export const createApiKeySchema = z.object({ name: z.string().min(1).max(120) }).strict();
@@ -258,6 +288,25 @@ export const inviteMemberSchema = z
 
 /** Body of `PATCH /v1/members/{userId}`: change a member's role. */
 export const updateMemberSchema = z.object({ role: z.enum(MEMBER_ROLES) }).strict();
+
+/**
+ * Body of `PUT /v1/sso`: configure a Scale workspace's OIDC SSO connection (#89). The client
+ * secret is write-only — it is stored encrypted and never returned. `emailDomain` is the bare
+ * domain colleagues sign in under (no `@`).
+ */
+export const ssoConnectionSchema = z
+  .object({
+    issuer: z.string().url(),
+    clientId: z.string().min(1).max(400),
+    clientSecret: z.string().min(1).max(400),
+    emailDomain: z
+      .string()
+      .min(1)
+      .max(253)
+      .regex(/^[a-z0-9.-]+\.[a-z]{2,}$/i, "must be a bare email domain, e.g. acme.com"),
+    defaultRole: z.enum(MEMBER_ROLES).default("member"),
+  })
+  .strict();
 
 /** Body of `POST /v1/webhooks`: register a delivery endpoint for signed status events. */
 export const createWebhookSchema = z

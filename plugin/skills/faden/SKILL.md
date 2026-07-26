@@ -20,26 +20,60 @@ platform, with per-target results and stable error codes.
   `connect_account { "platform": "bluesky", "identifier": "you.bsky.social", "appPassword": "…" }` —
   an app password from bsky.app → Settings → Privacy and Security → App Passwords, never the main password.
 
+## Check before you post
+
+Two calls answer offline, with no API request and no credentials — use them instead of learning a
+limit from a rejected create:
+
+```
+list_platform_constraints { "platform": "x" }        # char ceiling, media count, accepted types
+validate_post { "content": "…", "platforms": ["x", "linkedin"] }
+# CLI: npx @fadenhq/cli platforms list -p x
+#      npx @fadenhq/cli validate -p x,linkedin -c "…"   (exits 3 when anything fails)
+```
+
+`validate_post` runs the same per-platform checks the API runs, so it catches the common rejections
+(`content_too_long`, `media_required`, `board_required`) before a post is attempted. It cannot see
+what only the server knows — whether an account is connected, or a remote file's real type and
+size — so a clean result rules out the usual failures rather than guaranteeing success. The CLI
+equivalent for a full create is `npx @fadenhq/cli posts create … --dry-run`, which also prints the
+request body it would send.
+
 ## Core flows
 
 **Immediate cross-post**
 
 ```
 create_post { "content": "Ship day 🚀", "platforms": ["x", "linkedin"] }
-# CLI: npx @fadenhq/cli post -p x,linkedin -c "Ship day 🚀"
+# CLI: npx @fadenhq/cli posts create -p x,linkedin -c "Ship day 🚀"
 ```
+
+**Always pass `idempotencyKey` when you might retry.** A create that times out or whose result you
+lose is ambiguous: without a key, retrying publishes a *second* real post, which cannot be undone
+once it is live. With one, the retry returns the original post and `replayed: true`:
+
+```
+create_post { "content": "Ship day", "platforms": ["x"], "idempotencyKey": "ship-2026-08-01" }
+# CLI: npx @fadenhq/cli posts create -p x -c "Ship day" --idempotency-key ship-2026-08-01
+```
+
+Choose a key that identifies the *intent* (what the user asked for), not the attempt, so every
+retry of that intent carries the same one.
 
 **Schedule** — `scheduledFor` is ISO 8601 with offset; pass `timezone` (IANA) when the user gave a local time:
 
 ```
 create_post { "content": "…", "platforms": ["x"], "scheduledFor": "2026-08-01T09:00:00+02:00", "timezone": "Europe/Berlin" }
-# CLI: npx @fadenhq/cli post -p x -c "…" --at "2026-08-01T09:00 Europe/Berlin"
+# CLI: npx @fadenhq/cli posts create -p x -c "…" --at "2026-08-01T09:00 Europe/Berlin"
 ```
 
 **Queue cadence** — when the user wants regular posting without picking times, configure weekly
-slots once (`PUT /v1/queue`, CLI: `npx @fadenhq/cli queue set -z Europe/Berlin -s mon@09:00`) and
+slots once (`set_queue_slots`, CLI: `npx @fadenhq/cli queue set -z Europe/Berlin -s mon@09:00`) and
 create posts with `"useQueue": true` (CLI: `--queue`) — each drops into the next free slot.
-`useQueue` is mutually exclusive with `scheduledFor` and `draft`.
+`useQueue` is mutually exclusive with `scheduledFor` and `draft`. Read the current slots with
+`list_queue_slots` first — `set_queue_slots` REPLACES all of them. `get_usage` reports
+consumption against the plan's quotas; check it before a bulk run, since a post over quota is
+rejected rather than queued.
 
 **Tailor per platform** — `platformConfigurations` overrides content/media per platform
 (X gets 280 chars, LinkedIn the long version); `accountConfigurations` (keyed by account id from
@@ -55,7 +89,7 @@ create_post {
     "instagram": { "placement": "reel", "coverImageUrl": "https://…" }
   }
 }
-# CLI: npx @fadenhq/cli post -p x,linkedin -c "Long version" --caption x="Short version"
+# CLI: npx @fadenhq/cli posts create -p x,linkedin -c "Long version" --caption x="Short version"
 ```
 
 **Media** — platforms fetch media by URL, so files must be publicly reachable. Upload local files
@@ -76,7 +110,7 @@ results with `get_post_status`. Each target reports `status` (pending/publishing
 the platform-native post id, and a stable `errorCode` on failure.
 
 **Edit/cancel before publish** — drafts and scheduled posts only: `update_post` / `cancel_post`
-(CLI: `npx @fadenhq/cli posts edit <id> …`). Once a post is `publishing` it can no longer be changed.
+(CLI: `npx @fadenhq/cli posts edit <id> …` / `npx @fadenhq/cli posts cancel <id>`). Once a post is `publishing` it can no longer be changed.
 
 ## Error handling
 
@@ -89,12 +123,12 @@ the platform-native post id, and a stable `errorCode` on failure.
 - Draft-first is the safe default for human-in-the-loop workflows: create with `"draft": true`
   and show the user before anything publishes. Drafts never auto-publish. Once the user signs
   off, promote the draft with `approve_post { "postId": "…" }` (optionally with `scheduledFor`)
-  — CLI: `npx @fadenhq/cli approve <postId> [--at "…"]`. Edit first with `update_post` if the user
+  — CLI: `npx @fadenhq/cli posts approve <postId> [--at "…"]`. Edit first with `update_post` if the user
   wants changes.
 
 ## Analytics
 
-`post_analytics { "postId": "…" }` (CLI: `npx @fadenhq/cli analytics <postId>`) returns the latest
+`post_analytics { "postId": "…" }` (CLI: `npx @fadenhq/cli posts analytics <postId>`) returns the latest
 snapshot plus a time series per platform target. Metrics are integers or `null`; `null` means
 the platform does not expose that metric — never report it as 0. Snapshots start after a post
 completes (hourly on day one, then daily), so a just-published post may have an empty series.
