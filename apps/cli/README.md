@@ -142,6 +142,31 @@ Every tool has a CLI equivalent. The reverse is nearly true: `faden keys` is del
 (minting credentials is a human decision, not an agent one), and `faden bulk import` has no tool
 because looping `create_post` is the natural MCP idiom for what CSV solves at the shell.
 
+## Posting skill
+
+The MCP tools say what is callable; the skill (`plugin/skills/faden/SKILL.md`) says how to use
+them well — check constraints before writing, tailor per platform, read per-target results rather
+than assuming a post either worked or didn't.
+
+```sh
+npx skills add fadenhq/cli        # this project; -g for every project
+npx skills update                 # refresh the copy later
+```
+
+That copies the skill file into whichever agents you have, so it is not Claude Code-specific.
+Being a copy, it is a snapshot of the skill at install time — `skills update` re-fetches and
+compares against the hash in `skills-lock.json`. It installs the skill alone; for the MCP server
+too, Claude Code can take the whole plugin instead:
+
+```sh
+/plugin marketplace add fadenhq/cli
+/plugin install faden@faden
+```
+
+The skill's accuracy is enforced rather than trusted: `src/skill.test.ts` fails the build if it
+names a CLI command or an MCP tool that does not exist, so renaming either one here breaks CI
+instead of shipping wrong instructions to every install.
+
 ## Bulk CSV format
 
 Header row, then one post per row. `platforms` and `mediaUrls` are `;`/`|`-separated.

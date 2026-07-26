@@ -16,8 +16,24 @@ As an MCP server for agent runtimes:
 claude mcp add faden --env FADEN_API_KEY=fdn_live_… -- npx @fadenhq/cli mcp
 ```
 
-See [apps/cli/README.md](apps/cli/README.md) for the full command reference, and
-[plugin/](plugin/) for the Claude Code plugin (`/plugin marketplace add fadenhq/cli`).
+And as a skill, so the agent knows how to use those tools well — check constraints before
+writing, tailor per platform, read per-target results:
+
+```sh
+npx skills add fadenhq/cli     # Claude Code, Codex, Cursor, … ; -g for every project
+npx skills update              # refresh the copy later
+```
+
+That installs the skill alone. Claude Code can take the plugin instead, which carries the
+skill and the MCP server together:
+
+```sh
+/plugin marketplace add fadenhq/cli
+/plugin install faden@faden
+```
+
+See [apps/cli/README.md](apps/cli/README.md) for the full command reference and
+[plugin/](plugin/) for what the plugin contains.
 
 ## Repository layout
 
