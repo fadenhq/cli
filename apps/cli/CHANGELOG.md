@@ -9,6 +9,25 @@ agent built against an older version can trip over. The MCP surface is self-desc
 runtime — a client re-reads the tool list on connect — so it is recorded here for humans
 reading back, not because a client needs it to stay current.
 
+## [0.3.1] - 2026-07-26
+
+### Added
+
+- `--scheduled-from` / `--scheduled-to` on `posts list`, filtering on when a post is due to
+  go out rather than when it was created — "what ships in August?" is a `scheduledFor`
+  window. Posts with no schedule are excluded. Needs the API deployed 2026-07-26 or later.
+
+### Fixed
+
+- **`faden whoami` works after `faden login`.** It asked the API for the logged-in *user*,
+  which a workspace API key cannot identify, so every call failed with `401 session token
+  required (API keys have no user identity)`. It now asks who the *key* is, against the new
+  `GET /v1/whoami`, and prints the workspace and plan alongside the key. Needs the API
+  deployed 2026-07-26 or later; against an older one the command says so rather than
+  reporting a bare 404.
+  JSON output gains `workspace`, `role` and `auth`; the previously documented
+  `.workspace.id` field now exists.
+
 ## [0.3.0] - 2026-07-26
 
 Reworked the CLI for non-interactive use by agents and scripts.

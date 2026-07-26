@@ -215,6 +215,10 @@ export const listPostsQuerySchema = z
     from: z.string().datetime({ offset: true }).optional(),
     /** Exclusive `createdAt` upper bound. */
     to: z.string().datetime({ offset: true }).optional(),
+    /** Inclusive `scheduledFor` lower bound; posts with no schedule are excluded. */
+    scheduledFrom: z.string().datetime({ offset: true }).optional(),
+    /** Exclusive `scheduledFor` upper bound; posts with no schedule are excluded. */
+    scheduledTo: z.string().datetime({ offset: true }).optional(),
     limit: z.coerce.number().int().min(1).max(100).default(20),
     cursor: z.string().optional(),
   })

@@ -151,11 +151,33 @@ Examples:
   .action(async () => {
     const config: ResolvedConfig = await loadConfig();
     const api = new ApiClient(config, resolveTimeoutMs(program.opts<GlobalOptions>().timeout));
-    const me = await api.get<Record<string, unknown>>("/v1/me");
+    // /v1/whoami, not /v1/me: the CLI authenticates with a workspace API key, which carries no
+    // user identity — /v1/me is the dashboard's session-only bootstrap and rejects keys.
+    const me = await api
+      .get<{ workspace?: { id: string; name: string; plan: string } }>("/v1/whoami")
+      .catch((err: unknown) => {
+        // Deployments older than 2026-07-26 have no /v1/whoami at all, and answer with the
+        // router's own 404 rather than the endpoint's `not_found`. Say that outright: a bare
+        // 404 here reads like the *key* is missing, which sends people re-running login.
+        if (err instanceof ApiError && err.status === 404 && err.body.error !== "not_found") {
+          throw new CliError(
+            `${config.apiUrl} has no /v1/whoami — that API deployment predates this command.\n` +
+              "Upgrade the API deployment (or check FADEN_API_URL points at the API host).",
+            EXIT.generic,
+          );
+        }
+        throw err;
+      });
     emit(
       { apiUrl: config.apiUrl, keySource: config.source, apiKey: maskKey(config.apiKey), ...me },
-      (d: { apiUrl: string; keySource: string; apiKey: string }) =>
-        `key      ${d.apiKey} (from ${d.keySource === "env" ? "FADEN_API_KEY" : "config file"})\napi      ${d.apiUrl}`,
+      (d: { apiUrl: string; keySource: string; apiKey: string; workspace?: { id: string; name: string; plan: string } }) =>
+        [
+          `key        ${d.apiKey} (from ${d.keySource === "env" ? "FADEN_API_KEY" : "config file"})`,
+          `api        ${d.apiUrl}`,
+          ...(d.workspace
+            ? [`workspace  ${d.workspace.name} (${d.workspace.id})`, `plan       ${d.workspace.plan}`]
+            : []),
+        ].join("\n"),
     );
   });
 
@@ -457,6 +479,8 @@ postsCmd
   .option("--platform <platform>", "filter by target platform")
   .option("--from <iso>", "createdAt lower bound (inclusive, ISO 8601)")
   .option("--to <iso>", "createdAt upper bound (exclusive, ISO 8601)")
+  .option("--scheduled-from <iso>", "scheduledFor lower bound (inclusive, ISO 8601)")
+  .option("--scheduled-to <iso>", "scheduledFor upper bound (exclusive, ISO 8601)")
   .option("--limit <n>", "page size (max 100)", "20")
   .option("--cursor <cursor>", "pagination cursor from the previous page")
   .option("--all", "follow the cursor and return every matching post", false)
@@ -467,7 +491,9 @@ Examples:
   faden posts list --status scheduled
   faden posts list --platform x --limit 100
   faden posts list --status failed --all           follows the cursor for you
-  faden posts list --from 2026-07-01T00:00:00Z --to 2026-08-01T00:00:00Z`,
+  faden posts list --from 2026-07-01T00:00:00Z --to 2026-08-01T00:00:00Z
+  faden posts list --scheduled-from 2026-08-01T00:00:00Z --scheduled-to 2026-09-01T00:00:00Z
+                                                   what goes out in August`,
   )
   .action(
     async (opts: {
@@ -475,6 +501,8 @@ Examples:
       platform?: string;
       from?: string;
       to?: string;
+      scheduledFrom?: string;
+      scheduledTo?: string;
       limit: string;
       cursor?: string;
       all: boolean;
@@ -485,6 +513,8 @@ Examples:
       if (opts.platform) query.set("platform", opts.platform);
       if (opts.from) query.set("from", opts.from);
       if (opts.to) query.set("to", opts.to);
+      if (opts.scheduledFrom) query.set("scheduledFrom", opts.scheduledFrom);
+      if (opts.scheduledTo) query.set("scheduledTo", opts.scheduledTo);
       query.set("limit", opts.limit);
 
       if (!opts.all) {
