@@ -1,6 +1,6 @@
 {
   "name": "faden",
-  "version": "0.1.0",
+  "version": "0.3.1",
   "description": "Publish and schedule social-media posts across X, LinkedIn, Facebook, Instagram and Threads through the faden API.",
   "author": {
     "name": "Timur Olzhabayev",

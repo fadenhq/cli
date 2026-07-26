@@ -51,6 +51,16 @@ async function listedCommands(parent: string[]): Promise<string[]> {
   return [...section.matchAll(/^ {2}(\S+)/gm)].flatMap((m) => m[1]!.split("|"));
 }
 
+describe("the plugin ships as a version of the CLI", () => {
+  // The plugin is how Claude Code installs the MCP server, which *is* the CLI — so a plugin
+  // version that lags the release it carries is a version number that means nothing. Claude
+  // Code shows it in `/plugin`, making it the only version a user of the plugin can see.
+  it("declares the same version as the package it runs", () => {
+    const read = (path: string) => JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8")) as { version: string };
+    expect(read("../../../plugin/.claude-plugin/plugin.json").version).toBe(read("../package.json").version);
+  });
+});
+
 describe("the faden skill stays true to the CLI", () => {
   // A regex that quietly stopped matching would make every assertion below vacuous.
   it("extracts what it claims to (guards the guards)", () => {
