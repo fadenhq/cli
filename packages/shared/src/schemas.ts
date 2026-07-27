@@ -2,7 +2,7 @@ import { z } from "zod";
 import { HANDLE_MAX_LENGTH, handlePattern } from "./handles.js";
 import { BILLING_MODES } from "./plans.js";
 import { PLATFORMS } from "./platforms.js";
-import { POST_STATUSES, WEBHOOK_EVENTS } from "./types.js";
+import { POST_STATUSES, WEBHOOK_DELIVERY_STATUSES, WEBHOOK_EVENTS } from "./types.js";
 
 export const platformSchema = z.enum(PLATFORMS);
 
@@ -322,6 +322,36 @@ export const createWebhookSchema = z
   .strict();
 
 export type CreateWebhookInput = z.infer<typeof createWebhookSchema>;
+
+/**
+ * Body of `PATCH /v1/webhooks/:id`. Every field optional (send only what changes); `events: null`
+ * clears the filter back to "every event", which an empty array cannot express. `status` pauses an
+ * endpoint or brings one back after faden disabled it for repeated failures — re-activating also
+ * clears the failure count, so a fixed receiver starts from a clean slate.
+ */
+export const updateWebhookSchema = z
+  .object({
+    url: z.string().url().optional(),
+    events: z.array(z.enum(WEBHOOK_EVENTS)).min(1).nullable().optional(),
+    status: z.enum(["active", "disabled"]).optional(),
+  })
+  .strict()
+  .refine((v) => v.url !== undefined || v.events !== undefined || v.status !== undefined, {
+    message: "provide url, events, status, or a combination",
+  });
+
+export type UpdateWebhookInput = z.infer<typeof updateWebhookSchema>;
+
+/** Query of `GET /v1/webhooks/:id/deliveries`: state filter + cursor pagination. */
+export const listWebhookDeliveriesQuerySchema = z
+  .object({
+    status: z.enum(WEBHOOK_DELIVERY_STATUSES).optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    cursor: z.string().optional(),
+  })
+  .strict();
+
+export type ListWebhookDeliveriesQuery = z.infer<typeof listWebhookDeliveriesQuerySchema>;
 
 /** Body of `POST /v1/media`: reserve an R2 object before uploading bytes. */
 export const registerMediaSchema = z

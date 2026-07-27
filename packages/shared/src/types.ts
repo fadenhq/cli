@@ -113,3 +113,20 @@ export const WEBHOOK_EVENTS = [
   "post.failed",
 ] as const;
 export type WebhookEventType = (typeof WEBHOOK_EVENTS)[number];
+
+/**
+ * Terminal state of one event's delivery to one endpoint. `pending` means retries remain — only
+ * an event that exhausted them is `failed`.
+ */
+export const WEBHOOK_DELIVERY_STATUSES = ["pending", "delivered", "failed"] as const;
+export type WebhookDeliveryStatus = (typeof WEBHOOK_DELIVERY_STATUSES)[number];
+
+/**
+ * Events dead-lettered in a row before faden disables an endpoint. Counted per event, not per
+ * attempt, so a brief receiver outage costs one. Lives here because the CLI and the dashboard
+ * both state the number to users, and a copy of it would quietly drift from the API's behaviour.
+ */
+export const WEBHOOK_FAILURE_THRESHOLD = 5;
+
+/** How long delivery records are kept before the cron prunes them. */
+export const WEBHOOK_DELIVERY_RETENTION_DAYS = 30;

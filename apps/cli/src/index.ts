@@ -7,6 +7,10 @@ import {
   PLATFORMS,
   type Platform,
   type PublishOptions,
+  WEBHOOK_DELIVERY_RETENTION_DAYS,
+  WEBHOOK_DELIVERY_STATUSES,
+  WEBHOOK_EVENTS,
+  WEBHOOK_FAILURE_THRESHOLD,
 } from "@fadenhq/shared";
 import { Command } from "commander";
 import { ApiClient, ApiError, resolveTimeoutMs } from "./client.js";
@@ -904,6 +908,200 @@ Examples:
     }
     emit(await api.delete(`/v1/keys/${keyId}`));
     hint("faden keys list");
+  });
+
+// ---------------------------------------------------------------------------
+// webhooks
+// ---------------------------------------------------------------------------
+
+/** Parse `--events a,b` into the validated list, or undefined for "every event". */
+function parseEvents(value: string | undefined): string[] | undefined {
+  if (value === undefined) return undefined;
+  const events = value.split(",").map((e) => e.trim()).filter(Boolean);
+  const unknown = events.filter((e) => !(WEBHOOK_EVENTS as readonly string[]).includes(e));
+  if (unknown.length > 0) {
+    throw new CliError(
+      `unknown event(s): ${unknown.join(", ")} — valid: ${WEBHOOK_EVENTS.join(", ")}`,
+      EXIT.validation,
+    );
+  }
+  return events.length > 0 ? events : undefined;
+}
+
+const webhooks = program
+  .command("webhooks")
+  .description("Manage endpoints that receive signed publish events");
+
+webhooks
+  .command("list")
+  .description("List endpoints (signing secrets are never shown)")
+  .addHelpText("after", "\nExamples:\n  faden webhooks list\n  faden webhooks list --output json | jq -r '.[].url'")
+  .action(async () => {
+    const api = await client();
+    const res = await api.get<{ webhooks: unknown[] }>("/v1/webhooks");
+    emit(res.webhooks);
+  });
+
+webhooks
+  .command("add <url>")
+  .description("Register an endpoint — the signing secret is printed once, store it now")
+  .option("-e, --events <list>", `comma-separated subset of: ${WEBHOOK_EVENTS.join(", ")} (default: all)`)
+  .addHelpText(
+    "after",
+    `
+Examples:
+  faden webhooks add https://app.example/hooks/faden
+  faden webhooks add https://app.example/hooks -e post.completed,post.failed
+  faden webhooks add https://app.example/hooks --output json | jq -r .secret`,
+  )
+  .action(async (url: string, opts: { events?: string }) => {
+    const api = await client();
+    const events = parseEvents(opts.events);
+    emit(await api.post("/v1/webhooks", { url, ...(events ? { events } : {}) }));
+    hint("faden webhooks test <id>");
+  });
+
+webhooks
+  .command("update <webhookId>")
+  .description("Change an endpoint's URL, event filter or status (the signing secret is kept)")
+  .option("-u, --url <url>", "new delivery URL")
+  .option("-e, --events <list>", "new event filter; pass 'all' to receive everything")
+  .option("--status <status>", "'disabled' to pause deliveries, 'active' to resume")
+  .addHelpText(
+    "after",
+    `
+Examples:
+  faden webhooks update wh_123 -e post.completed
+  faden webhooks update wh_123 -e all           subscribe to every event
+  faden webhooks update wh_123 -u https://new.example/hooks
+  faden webhooks update wh_123 --status active  re-enable after fixing the receiver
+
+faden disables an endpoint by itself once ${WEBHOOK_FAILURE_THRESHOLD} events in a row have exhausted their retries.
+Re-activating resets that count, so fix the receiver (\`faden webhooks test\` confirms it) before
+turning it back on.`,
+  )
+  .action(async (webhookId: string, opts: { url?: string; events?: string; status?: string }) => {
+    if (opts.url === undefined && opts.events === undefined && opts.status === undefined) {
+      throw new CliError("nothing to change — pass --url, --events or --status", EXIT.validation);
+    }
+    if (opts.status !== undefined && !["active", "disabled"].includes(opts.status)) {
+      throw new CliError(`unknown status: ${opts.status} — valid: active, disabled`, EXIT.validation);
+    }
+    const api = await client();
+    const body: Record<string, unknown> = {};
+    if (opts.url !== undefined) body.url = opts.url;
+    // `null` is the only way to say "every event"; an empty list is rejected by the API.
+    if (opts.events !== undefined) body.events = opts.events === "all" ? null : parseEvents(opts.events);
+    if (opts.status !== undefined) body.status = opts.status;
+    emit(await api.patch(`/v1/webhooks/${webhookId}`, body));
+  });
+
+webhooks
+  .command("deliveries <webhookId>")
+  .description("What happened to this endpoint's events, newest first")
+  .option("--status <status>", "only pending, delivered or failed")
+  .option("--limit <n>", "page size (max 100)", "20")
+  .option("--cursor <cursor>", "pagination cursor from the previous page")
+  .option("--all", "follow the cursor and return every record", false)
+  .addHelpText(
+    "after",
+    `
+Examples:
+  faden webhooks deliveries wh_123
+  faden webhooks deliveries wh_123 --status failed --all
+  faden webhooks deliveries wh_123 --output json | jq '[.deliveries[] | select(.attempts > 1)]'
+
+A record is 'pending' while retries remain and 'failed' once the event has exhausted them, so a
+'failed' row is an event your receiver never acknowledged. Records are kept for ${WEBHOOK_DELIVERY_RETENTION_DAYS} days.`,
+  )
+  .action(async (webhookId: string, opts: { status?: string; limit: string; cursor?: string; all: boolean }) => {
+    if (opts.status !== undefined && !(WEBHOOK_DELIVERY_STATUSES as readonly string[]).includes(opts.status)) {
+      throw new CliError(`unknown status: ${opts.status} — valid: ${WEBHOOK_DELIVERY_STATUSES.join(", ")}`, EXIT.validation);
+    }
+    const api = await client();
+    const path = `/v1/webhooks/${webhookId}/deliveries`;
+    const query = new URLSearchParams();
+    if (opts.status) query.set("status", opts.status);
+    query.set("limit", opts.limit);
+
+    if (!opts.all) {
+      if (opts.cursor) query.set("cursor", opts.cursor);
+      const res = await api.get<{ nextCursor: string | null }>(`${path}?${query.toString()}`);
+      emit(res);
+      if (res.nextCursor) hint(`faden webhooks deliveries ${webhookId} --cursor ${res.nextCursor}`);
+      return;
+    }
+
+    const deliveries: unknown[] = [];
+    let cursor = opts.cursor;
+    do {
+      if (cursor) query.set("cursor", cursor);
+      const page = await api.get<{ deliveries: unknown[]; nextCursor: string | null }>(`${path}?${query.toString()}`);
+      deliveries.push(...page.deliveries);
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+    emit({ deliveries, nextCursor: null });
+  });
+
+webhooks
+  .command("test <webhookId>")
+  .description("Send a synthetic post.completed and report what the receiver answered")
+  .addHelpText(
+    "after",
+    `
+Examples:
+  faden webhooks test wh_123
+  faden webhooks test wh_123 && echo "receiver is ready"
+
+The event is signed with the endpoint's real secret and uses a type the endpoint subscribes to,
+so a receiver that verifies the test verifies production deliveries. Its payload carries
+"test": true and a placeholder postId. A receiver that does not answer 2xx exits 1: this is a
+check, so it fails like one rather than reporting a negative result as success.`,
+  )
+  .action(async (webhookId: string) => {
+    const api = await client();
+    const result = await api.post<{ ok: boolean; status: number | null; durationMs: number; error?: string }>(
+      `/v1/webhooks/${webhookId}/test`,
+    );
+    emit(result, (d: { ok: boolean; status: number | null; durationMs: number; error?: string }) =>
+      d.ok
+        ? `delivered — ${d.status} in ${d.durationMs}ms`
+        : `not delivered — ${d.status ?? d.error ?? "no response"}${d.status ? ` in ${d.durationMs}ms` : ""}`,
+    );
+    // Non-zero on a receiver that refused, so the command can gate a deploy without parsing
+    // stdout. Deliberately `generic` and not `rateLimited`: the documented meaning of 5 is
+    // "retry later or upgrade", which would be a lie about a receiver returning 500.
+    if (!result.ok) process.exitCode = EXIT.generic;
+  });
+
+webhooks
+  .command("rm <webhookId>")
+  .description("Delete an endpoint — deliveries stop immediately")
+  .option("--dry-run", "show which endpoint would be deleted without deleting it", false)
+  .addHelpText(
+    "after",
+    `
+Examples:
+  faden webhooks rm wh_123 --dry-run
+  faden webhooks rm wh_123`,
+  )
+  .action(async (webhookId: string, opts: { dryRun: boolean }) => {
+    const api = await client();
+    if (opts.dryRun) {
+      const res = await api.get<{ webhooks: Array<{ id: string }> }>("/v1/webhooks");
+      const target = res.webhooks.find((w) => w.id === webhookId);
+      emit({
+        dryRun: true,
+        webhookId,
+        found: Boolean(target),
+        webhook: target ?? null,
+        request: { method: "DELETE", path: `/v1/webhooks/${webhookId}` },
+      });
+      if (!target) process.exitCode = EXIT.notFound;
+      return;
+    }
+    emit(await api.delete(`/v1/webhooks/${webhookId}`));
+    hint("faden webhooks list");
   });
 
 // ---------------------------------------------------------------------------

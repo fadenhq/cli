@@ -9,6 +9,31 @@ agent built against an older version can trip over. The MCP surface is self-desc
 runtime — a client re-reads the tool list on connect — so it is recorded here for humans
 reading back, not because a client needs it to stay current.
 
+## [Unreleased]
+
+Entries land here as they merge and get a version heading at release, so nothing reaches npm
+unrecorded.
+
+## [0.4.0] - 2026-07-27
+
+Webhook management from the CLI: register endpoints, check a receiver, and see what happened to
+each event.
+
+### Added
+
+- **`faden webhooks`**: `list`, `add`, `update`, `deliveries`, `test`, `rm`. `test` sends a
+  synthetic event to an endpoint and reports what the receiver answered, exiting non-zero unless it
+  was 2xx — so `faden webhooks test <id>` can gate a deploy. `update` changes the URL or the event
+  filter without rotating the signing secret (`-e all` subscribes to everything). Needs the API
+  deployed 2026-07-26 or later.
+- **`faden webhooks deliveries <id>`**: what happened to each event — attempt count, the
+  receiver's status or the network error, latency. `--status failed` narrows it to events that
+  never landed, `--all` follows the cursor. Records are kept 30 days. Needs the API deployed
+  2026-07-27 or later.
+- **`faden webhooks update --status active|disabled`** pauses an endpoint or re-enables one faden
+  disabled. faden now switches an endpoint off after 5 events in a row exhaust their retries;
+  re-enabling clears that count. `list` gains `consecutiveFailures` and `disabledAt`.
+
 ## [0.3.1] - 2026-07-26
 
 ### Added
