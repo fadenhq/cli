@@ -1,6 +1,7 @@
 export * from "./platforms.js";
 export * from "./plans.js";
 export * from "./handles.js";
+export * from "./media.js";
 export * from "./time.js";
 export * from "./overrides.js";
 export * from "./permalinks.js";

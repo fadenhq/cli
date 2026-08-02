@@ -14,6 +14,15 @@ reading back, not because a client needs it to stay current.
 Entries land here as they merge and get a version heading at release, so nothing reaches npm
 unrecorded.
 
+## [0.4.1] - 2026-08-02
+
+### Changed
+
+- Help text, error messages and the posting skill reworded. Commands, flags, exit codes and the
+  shape of what lands on stdout are unchanged.
+- Media validation moved into `@fadenhq/shared`, which the CLI already bundles. No change to
+  `faden media upload` or the `upload_media` tool.
+
 ## [0.4.0] - 2026-07-27
 
 Webhook management from the CLI: register endpoints, check a receiver, and see what happened to

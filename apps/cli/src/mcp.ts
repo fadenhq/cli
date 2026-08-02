@@ -48,10 +48,10 @@ export const TOOLS: ToolDef[] = [
     description:
       "Create or schedule a unified social-media post that fans out to every listed platform, and " +
       "to every active account of each (e.g. both connected Facebook Pages). Pass accountIds to " +
-      "narrow the fan-out to specific accounts. Omit scheduledFor to publish immediately; set " +
+      "narrow the fan-out to specific accounts. Omit scheduledFor to publish immediately, or set " +
       "draft: true to store without publishing. Use platformConfigurations/accountConfigurations " +
-      "to tailor content per target (merge precedence: account > platform > base). Returns postId — " +
-      "poll get_post_status for per-target results. Pass idempotencyKey to make retries safe: " +
+      "to tailor content per target (merge precedence: account > platform > base). Returns postId. " +
+      "Poll get_post_status for per-target results. Pass idempotencyKey to make retries safe: " +
       "replaying a key returns the original post (replayed: true) instead of publishing twice.",
     schema: createPostSchema.extend({
       idempotencyKey: z
@@ -59,7 +59,7 @@ export const TOOLS: ToolDef[] = [
         .min(1)
         .max(255)
         .optional()
-        .describe("Caller-chosen key, unique per intended post; replaying it never creates a second post"),
+        .describe("Caller-chosen key, unique per intended post. Replaying it never creates a second post"),
     }),
     handler: (client, args) => {
       // The key travels as a header, not a field — it identifies the request, not the post.
@@ -127,7 +127,7 @@ export const TOOLS: ToolDef[] = [
     name: "post_analytics",
     description:
       "Normalized metrics for a published post: latest snapshot plus time series per platform " +
-      "target. Integers only; null means the platform does not expose that metric (never 0).",
+      "target. Integers only, and null means the platform does not expose that metric (never 0).",
     schema: postIdSchema,
     handler: (client, args) => client.get(`/v1/posts/${encodeURIComponent(args.postId as string)}/analytics`),
   },
@@ -143,7 +143,7 @@ export const TOOLS: ToolDef[] = [
     name: "connect_account",
     description:
       "Connect a social account. For OAuth platforms this returns an authUrl the user must open " +
-      "in a browser to authorize; the account appears in list_accounts once they complete it. " +
+      "in a browser to authorize. The account appears in list_accounts once they complete it. " +
       "Bluesky instead connects directly: pass identifier (handle) + appPassword (from " +
       "bsky.app Settings → App Passwords) and the account is connected in this call.",
     schema: z
@@ -151,7 +151,7 @@ export const TOOLS: ToolDef[] = [
         platform: z.enum(PLATFORMS),
         returnTo: z.string().url().optional().describe("Redirect target after OAuth completes (OAuth platforms)"),
         identifier: z.string().optional().describe("Account handle/email (credential platforms, e.g. bluesky)"),
-        appPassword: z.string().optional().describe("App password (credential platforms; never the main password)"),
+        appPassword: z.string().optional().describe("App password (credential platforms, never the main password)"),
       })
       .strict(),
     handler: (client, args) => {
@@ -198,7 +198,7 @@ export const TOOLS: ToolDef[] = [
   {
     name: "set_queue_slots",
     description:
-      "REPLACE every queue slot with the ones given (this is a PUT, not an append) — read " +
+      "REPLACE every queue slot with the ones given (this is a PUT, not an append). Read " +
       "list_queue_slots first. Times are wall-clock in the given IANA timezone.",
     schema: setQueueSchema,
     handler: (client, args) => client.put("/v1/queue", args),
@@ -207,10 +207,10 @@ export const TOOLS: ToolDef[] = [
     name: "list_platform_constraints",
     description:
       "Per-platform limits: character ceiling, media count, accepted image/video types and byte " +
-      "sizes. Answered locally with no API call — size content with this instead of learning the " +
+      "sizes. Answered locally with no API call, so size content with this instead of learning the " +
       "limit from a rejected create_post.",
     schema: z
-      .object({ platform: z.enum(PLATFORMS).optional().describe("Only this platform; omit for all") })
+      .object({ platform: z.enum(PLATFORMS).optional().describe("Only this platform, omit for all") })
       .strict(),
     handler: (_client, args) => {
       const wanted = args.platform ? [args.platform as Platform] : [...PLATFORMS];

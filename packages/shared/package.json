@@ -9,7 +9,12 @@
   "exports": {
     ".": "./src/index.ts",
     "./handles": "./src/handles.ts",
-    "./types": "./src/types.ts"
+    "./types": "./src/types.ts",
+    "./media": "./src/media.ts",
+    "./overrides": "./src/overrides.ts",
+    "./platforms": "./src/platforms.ts",
+    "./plans": "./src/plans.ts",
+    "./validate": "./src/validate.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

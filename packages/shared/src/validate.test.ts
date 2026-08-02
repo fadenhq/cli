@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateForPlatform } from "./validate.js";
+import { planIssuesForPlatform, validateForPlatform } from "./validate.js";
 import type { MediaRef } from "./types.js";
 
 const jpeg = (sizeBytes: number): MediaRef => ({ url: "https://cdn.example/a.jpg", mimeType: "image/jpeg", sizeBytes });
@@ -67,5 +67,24 @@ describe("validateForPlatform", () => {
     const video: MediaRef = { url: "https://cdn.example/a.mp4", mimeType: "video/mp4", sizeBytes: 1000 };
     const issues = validateForPlatform("pinterest", "pin", [video], { boardId: "b1" });
     expect(issues.map((i) => i.code)).toContain("media_unsupported");
+  });
+});
+
+describe("planIssuesForPlatform", () => {
+  it("gates a platform the free plan does not include", () => {
+    const issues = planIssuesForPlatform("free", "x");
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.code).toBe("platform_not_in_plan");
+    // Word for word what POST /v1/posts answers, so pre-flight and rejection read alike.
+    expect(issues[0]?.detail).toBe("x is not included in the free plan. Upgrade to post there");
+  });
+
+  it("passes a platform the free plan does include", () => {
+    expect(planIssuesForPlatform("free", "instagram")).toEqual([]);
+  });
+
+  it("gates nothing on a plan with no platform list", () => {
+    expect(planIssuesForPlatform("pro", "x")).toEqual([]);
+    expect(planIssuesForPlatform("scale", "pinterest")).toEqual([]);
   });
 });

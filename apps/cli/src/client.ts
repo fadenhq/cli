@@ -113,7 +113,7 @@ export class ApiClient {
     if (rawFallback !== undefined) {
       throw new CliError(
         `${method} ${url} → ${res.status} but the body is not JSON: ${rawFallback}\n` +
-          `Check FADEN_API_URL — it should point at the API host, not the dashboard.`,
+          `Check FADEN_API_URL. It should point at the API host, not the dashboard.`,
         EXIT.generic,
       );
     }
@@ -156,7 +156,7 @@ function truncate(text: string): string {
 function describeFetchFailure(err: unknown, method: string, url: string, timeoutMs: number): Error {
   if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
     return new CliError(
-      `${method} ${url} timed out after ${timeoutMs}ms — raise it with --timeout <ms> or FADEN_TIMEOUT_MS, or 0 to disable.`,
+      `${method} ${url} timed out after ${timeoutMs}ms. Raise it with --timeout <ms> or FADEN_TIMEOUT_MS, or 0 to disable.`,
     );
   }
   const cause = err instanceof Error ? (err.cause as { code?: string; message?: string } | undefined) : undefined;
@@ -164,11 +164,11 @@ function describeFetchFailure(err: unknown, method: string, url: string, timeout
   const detail = code ?? cause?.message ?? (err instanceof Error ? err.message : String(err));
   const hint =
     code === "ECONNREFUSED"
-      ? "\nNothing is listening there — check FADEN_API_URL (default https://api.faden.io)."
+      ? "\nNothing is listening there. Check FADEN_API_URL (default https://api.faden.io)."
       : code === "ENOTFOUND"
-        ? "\nHostname does not resolve — check FADEN_API_URL for a typo."
+        ? "\nHostname does not resolve. Check FADEN_API_URL for a typo."
         : code === "CERT_HAS_EXPIRED" || code === "UNABLE_TO_VERIFY_LEAF_SIGNATURE"
-          ? "\nTLS verification failed — a proxy may be intercepting the connection."
+          ? "\nTLS verification failed. A proxy may be intercepting the connection."
           : "";
   return new CliError(`${method} ${url} failed: ${detail}${hint}`);
 }

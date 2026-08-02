@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { mergeTargetConfig, parsePostConfigurations, splitOverrideInput, type PostConfigurations } from "./overrides.js";
+import {
+  mergeTargetConfig,
+  parsePostConfigurations,
+  splitOverrideInput,
+  storedOverrideToInput,
+  type PostConfigurations,
+} from "./overrides.js";
 import type { MediaRef } from "./types.js";
 
 const img = (url: string): MediaRef => ({ url, mimeType: "image/jpeg", sizeBytes: 100 });
@@ -66,5 +72,34 @@ describe("splitOverrideInput", () => {
       mediaUrls: ["https://a/b.jpg"],
       options: { placement: "reel" },
     });
+  });
+});
+
+describe("storedOverrideToInput", () => {
+  it("flattens a stored override back to input shape", () => {
+    expect(
+      storedOverrideToInput({
+        content: "hi",
+        media: [{ url: "https://a/b.jpg", mimeType: "image/jpeg", sizeBytes: 10 }],
+        options: { placement: "reel" },
+      }),
+    ).toEqual({ content: "hi", mediaUrls: ["https://a/b.jpg"], placement: "reel" });
+  });
+
+  it("round-trips through splitOverrideInput", () => {
+    const input = { content: "hi", mediaUrls: ["https://a/b.jpg"], placement: "reel" };
+    const split = splitOverrideInput(input);
+    const stored = {
+      content: split.content,
+      media: split.mediaUrls?.map((url) => ({ url, mimeType: "image/jpeg", sizeBytes: 10 })),
+      options: split.options,
+    };
+    expect(storedOverrideToInput(stored)).toEqual(input);
+  });
+
+  it("omits fields the override never set, rather than emptying them", () => {
+    // `content: ""` would publish a caption-less post instead of inheriting the base caption.
+    expect(storedOverrideToInput({ options: { boardId: "b1" } })).toEqual({ boardId: "b1" });
+    expect(storedOverrideToInput({ options: {} })).toEqual({});
   });
 });

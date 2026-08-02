@@ -1,5 +1,4 @@
-import { PLATFORM_CONSTRAINTS, validateForPlatform, type MediaRef, type Platform, type PublishOptions, type ValidationIssue } from "@fadenhq/shared";
-import { guessMimeFromUrl } from "./media.js";
+import { PLATFORM_CONSTRAINTS, guessMimeFromUrl, validateForPlatform, type MediaRef, type Platform, type PublishOptions, type ValidationIssue } from "@fadenhq/shared";
 
 export interface PreflightResult {
   ok: boolean;
@@ -53,7 +52,7 @@ export function formatPreflight(result: PreflightResult): string {
     const status = p.ok ? "ok" : "FAIL";
     return `${p.platform.padEnd(16)} ${status.padEnd(5)} ${p.contentLength}/${p.maxContentLength} chars`;
   });
-  for (const issue of result.issues) lines.push(`  ${issue.platform}: ${issue.code} — ${issue.detail}`);
+  for (const issue of result.issues) lines.push(`  ${issue.platform}: ${issue.code}  ${issue.detail}`);
   if (result.mediaNotCheckedLocally.length > 0) {
     lines.push(`  note: type not checked locally (no extension): ${result.mediaNotCheckedLocally.join(", ")}`);
   }

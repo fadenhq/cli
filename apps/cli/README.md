@@ -1,6 +1,6 @@
 # faden (CLI + MCP server)
 
-The `faden` CLI — a thin client over the faden API — plus an MCP server (`faden mcp`) so agent
+The `faden` CLI is a thin client over the faden API, plus an MCP server (`faden mcp`) so agent
 runtimes can publish without shelling out. Published on npm: `npx @fadenhq/cli`.
 
 ```sh
@@ -14,9 +14,9 @@ npm run dev -w @fadenhq/cli -- <args>  # run from source
 
 Two ways, in precedence order:
 
-1. **Env vars** — `FADEN_API_KEY` (required) and `FADEN_API_URL` (defaults to
+1. **Env vars:** `FADEN_API_KEY` (required) and `FADEN_API_URL` (defaults to
    `https://api.faden.io`). The natural fit for MCP client configs and CI.
-2. **Config file** — `faden login` writes `~/.config/faden/config.json`.
+2. **Config file:** `faden login` writes `~/.config/faden/config.json`.
 
 `faden login` with no flags opens a browser and mints a key for this machine. It needs an
 interactive terminal, so in CI or an agent sandbox (`!process.stdout.isTTY` or `CI` set) it fails
@@ -24,7 +24,7 @@ immediately with the non-interactive alternatives rather than blocking on the br
 `faden login --key fdn_live_…` or `FADEN_API_KEY` there.
 
 `faden whoami` reports the active key (masked), where it came from, and the workspace it resolves
-to — exiting 2 when unauthenticated.
+to, exiting 2 when unauthenticated.
 
 ## Usage
 
@@ -56,38 +56,38 @@ faden keys list
 faden keys revoke <keyId> --yes # last active key is protected
 ```
 
-`--at` accepts either a full ISO 8601 instant or `"<local-datetime> <IANA timezone>"`; the CLI
+`--at` accepts either a full ISO 8601 instant or `"<local-datetime> <IANA timezone>"`. The CLI
 converts it to a UTC instant before sending.
 
 Commands are resource-first (`faden posts create|get|list|edit|approve|cancel|analytics`). The
-older top-level verbs — `faden post`, `faden status`, `faden approve`, `faden analytics` — remain
-as aliases for the same commands.
+older top-level verbs (`faden post`, `faden status`, `faden approve`, `faden analytics`) still
+work as aliases for the same commands.
 
 ## Designed for agents
 
 The primary consumer is an agent, not a human at a keyboard, so:
 
-- **Nothing prompts.** Every input is a flag; the one interactive flow (`faden login`) fails fast
+- **Nothing prompts.** Every input is a flag, and the one interactive flow (`faden login`) fails fast
   with its non-interactive alternatives instead of blocking.
 - **Every command's `--help` carries examples**, so a surface can be learned one subcommand at a
   time rather than from a wall of docs.
 - **Flags, stdin or a file.** `-c -` reads stdin, `-c @notes.txt` reads a file, and `--config`
-  and `bulk import` accept the same forms — multi-line content needs no shell escaping.
+  and `bulk import` accept the same forms, so multi-line content needs no shell escaping.
 
   ```sh
   faden posts create -p x -c - < announcement.txt
   cat posts.csv | faden bulk import -
   faden posts create -p x -c "…" --config @overrides.json
   ```
-- **Retries are safe.** `--idempotency-key <key>` is sent as an `Idempotency-Key` header; replaying
+- **Retries are safe.** `--idempotency-key <key>` is sent as an `Idempotency-Key` header, and replaying
   a key returns the original post (with `replayed: true`) instead of publishing a second time.
-- **`--dry-run` before anything destructive** — `posts create`, `posts cancel`, `posts approve`,
+- **`--dry-run` before anything destructive:** `posts create`, `posts cancel`, `posts approve`,
   `bulk import`, `queue set`, `keys revoke`. For `posts create` it runs the full per-platform
   pre-flight locally, with zero API calls.
 - **Offline discovery.** `faden platforms list` prints every platform's limits and `faden validate`
-  checks content against them — both without credentials or a network call, so content can be sized
+  checks content against them. Neither needs credentials or a network call, so content can be sized
   before posting rather than after a 422.
-- **Machine-readable by default.** Output is JSON whenever stdout is not a terminal; `--output
+- **Machine-readable by default.** Output is JSON whenever stdout is not a terminal, and `--output
   json|text` forces either. Suggested next commands go to **stderr**, so stdout stays pipeable.
 - **Distinct exit codes**: `2` auth, `3` validation, `4` not found, `5` rate limited/quota,
   `1` anything else. `faden --help` documents the table.
@@ -96,7 +96,7 @@ The primary consumer is an agent, not a human at a keyboard, so:
 
 | Env var | Effect |
 | --- | --- |
-| `FADEN_API_KEY` | Workspace key; skips the config file entirely |
+| `FADEN_API_KEY` | Workspace key, skipping the config file entirely |
 | `FADEN_API_URL` | API base URL (default `https://api.faden.io`) |
 | `FADEN_TIMEOUT_MS` | Default per-request timeout in ms |
 | `FADEN_NO_HINTS` | Set to any value to suppress next-command hints |
@@ -129,13 +129,13 @@ Or in a JSON MCP config:
 
 Tools:
 
-- **Posting** — `create_post` (takes `idempotencyKey`, so a retry returns the original post rather
+- **Posting:** `create_post` (takes `idempotencyKey`, so a retry returns the original post rather
   than publishing twice), `get_post_status`, `list_posts`, `update_post`, `cancel_post`,
   `approve_post`, `post_analytics`
-- **Accounts & media** — `list_accounts`, `connect_account` (returns an authUrl for the human to
+- **Accounts and media:** `list_accounts`, `connect_account` (returns an authUrl for the human to
   open), `upload_media` (local file → hosted public URL for `mediaUrls`)
-- **Planning** — `get_usage`, `list_queue_slots`, `set_queue_slots`
-- **Offline, no API call** — `list_platform_constraints` and `validate_post`, so content can be
+- **Planning:** `get_usage`, `list_queue_slots`, `set_queue_slots`
+- **Offline, no API call:** `list_platform_constraints` and `validate_post`, so content can be
   sized and checked before a `create_post` is attempted
 
 Every tool has a CLI equivalent. The reverse is nearly true: `faden keys` is deliberately CLI-only
@@ -144,9 +144,9 @@ because looping `create_post` is the natural MCP idiom for what CSV solves at th
 
 ## Posting skill
 
-The MCP tools say what is callable; the skill (`plugin/skills/faden/SKILL.md`) says how to use
-them well — check constraints before writing, tailor per platform, read per-target results rather
-than assuming a post either worked or didn't.
+The MCP tools say what is callable. The skill (`plugin/skills/faden/SKILL.md`) says how to use
+them well: check the constraints before writing, tailor the text per platform, and read the
+per-target results rather than assuming a post either worked or didn't.
 
 ```sh
 npx skills add fadenhq/cli        # this project; -g for every project
@@ -154,9 +154,9 @@ npx skills update                 # refresh the copy later
 ```
 
 That copies the skill file into whichever agents you have, so it is not Claude Code-specific.
-Being a copy, it is a snapshot of the skill at install time — `skills update` re-fetches and
-compares against the hash in `skills-lock.json`. It installs the skill alone; for the MCP server
-too, Claude Code can take the whole plugin instead:
+Being a copy, it is a snapshot of the skill at install time, and `skills update` re-fetches it and
+compares against the hash in `skills-lock.json`. It installs the skill alone. To get the MCP
+server as well, Claude Code can take the whole plugin instead:
 
 ```sh
 /plugin marketplace add fadenhq/cli

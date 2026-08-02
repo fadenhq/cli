@@ -5,7 +5,7 @@ import { CliError, EXIT } from "./exit.js";
 export async function readStdin(): Promise<string> {
   if (process.stdin.isTTY) {
     throw new CliError(
-      "`-` reads from stdin, but stdin is a terminal — pipe something in:\n" +
+      "`-` reads from stdin, but stdin is a terminal. Pipe something in:\n" +
         "  faden posts create -p x -c - < announcement.txt",
       EXIT.validation,
     );

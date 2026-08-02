@@ -15,10 +15,10 @@ export const EXIT = {
 export const EXIT_CODE_HELP = `Exit codes:
   0  success
   1  unexpected failure (network, server error, unknown)
-  2  authentication — key missing, invalid or lacking access
-  3  validation — bad flags, or the API rejected the request body
-  4  not found — the post, account or key does not exist
-  5  rate limited or over quota — retry later or upgrade`;
+  2  authentication: key missing, invalid or lacking access
+  3  validation: bad flags, or the API rejected the request body
+  4  not found: the post, account or key does not exist
+  5  rate limited or over quota: retry later or upgrade`;
 
 /** An error whose message is already agent-actionable; carries the exit code to report. */
 export class CliError extends Error {

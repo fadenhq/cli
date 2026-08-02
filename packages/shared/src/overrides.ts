@@ -104,3 +104,19 @@ export function splitOverrideInput(input: Record<string, unknown>): {
     options: options as PublishOptions,
   };
 }
+
+/**
+ * The inverse of {@link splitOverrideInput}: turn a *stored* override back into the flat input
+ * shape a create/update accepts. `GET /v1/posts/:id` hands back the stored form, so any client
+ * that renders a post for editing and PATCHes it has to make this round trip.
+ *
+ * Absent fields stay absent — an override that never set a caption must not come back carrying
+ * `content: ""`, which would publish a caption-less post rather than inheriting the base one.
+ */
+export function storedOverrideToInput(stored: StoredOverride): Record<string, unknown> {
+  return {
+    ...(stored.content !== undefined ? { content: stored.content } : {}),
+    ...(stored.media !== undefined ? { mediaUrls: stored.media.map((m) => m.url) } : {}),
+    ...stored.options,
+  };
+}

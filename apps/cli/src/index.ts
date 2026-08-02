@@ -30,7 +30,7 @@ program
   .description("Unified social-media publishing CLI")
   .version(version)
   .option("--output <format>", "json or text (default: text on a terminal, json when piped)")
-  .option("--timeout <ms>", "per-request timeout in milliseconds; 0 disables it", (v) => {
+  .option("--timeout <ms>", "per-request timeout in milliseconds, or 0 to disable it", (v) => {
     const n = Number(v);
     if (!Number.isFinite(n) || n < 0) throw new CliError(`--timeout must be a non-negative number, got: ${v}`, EXIT.validation);
     return n;
@@ -54,7 +54,7 @@ Environment:
 
 ${EXIT_CODE_HELP}
 
-Docs: https://faden.io/docs — MCP server: faden mcp`,
+Docs: https://faden.io/docs   MCP server: faden mcp`,
   );
 
 interface GlobalOptions {
@@ -78,7 +78,7 @@ function parsePlatforms(value: string): Platform[] {
   const list = value.split(",").map((s) => s.trim()).filter(Boolean);
   const bad = list.filter((p) => !isPlatform(p));
   if (bad.length > 0) {
-    throw new CliError(`unknown platform(s): ${bad.join(", ")} — valid: ${PLATFORMS.join(", ")}`, EXIT.validation);
+    throw new CliError(`unknown platform(s): ${bad.join(", ")}. Valid: ${PLATFORMS.join(", ")}`, EXIT.validation);
   }
   return list as Platform[];
 }
@@ -97,7 +97,7 @@ program
   .alias("setup")
   .description("Log in via the browser and mint a workspace API key (or pass --key to store one directly)")
   .option("-u, --url <url>", "API base URL", "https://api.faden.io")
-  .option("-k, --key <apiKey>", "workspace API key (fdn_live_…) — skips the browser flow")
+  .option("-k, --key <apiKey>", "workspace API key (fdn_live_…), skipping the browser flow")
   .option("--app <url>", "dashboard base URL (for the browser flow)", "https://app.faden.io")
   .addHelpText(
     "after",
@@ -105,10 +105,10 @@ program
 Examples:
   faden login                                    opens a browser, mints a key for this machine
   faden login --key fdn_live_xxx                 store an existing key, no browser
-  export FADEN_API_KEY=fdn_live_xxx              no login at all — env wins over the config file
+  export FADEN_API_KEY=fdn_live_xxx              no login at all; env beats the config file
 
 The browser flow needs an interactive terminal. In CI or an agent sandbox, use --key or
-FADEN_API_KEY; create a key at https://app.faden.io/settings/keys.`,
+FADEN_API_KEY. Create a key at https://app.faden.io/settings/keys.`,
   )
   .action(async (opts: { url: string; key?: string; app: string }) => {
     let apiKey = opts.key;
@@ -131,7 +131,7 @@ FADEN_API_KEY; create a key at https://app.faden.io/settings/keys.`,
     emit(
       { ok: true, configPath: path, apiUrl: opts.url.replace(/\/$/, ""), workspace: workspace ?? null },
       (d: { configPath: string; workspace: string | null }) =>
-        `Logged in${d.workspace ? ` to workspace "${d.workspace}"` : ""} — credentials saved to ${d.configPath}`,
+        `Logged in${d.workspace ? ` to workspace "${d.workspace}"` : ""}. Credentials saved to ${d.configPath}`,
     );
     hint("faden whoami", "faden accounts list");
   });
@@ -165,7 +165,7 @@ Examples:
         // 404 here reads like the *key* is missing, which sends people re-running login.
         if (err instanceof ApiError && err.status === 404 && err.body.error !== "not_found") {
           throw new CliError(
-            `${config.apiUrl} has no /v1/whoami — that API deployment predates this command.\n` +
+            `${config.apiUrl} has no /v1/whoami, so that API deployment predates this command.\n` +
               "Upgrade the API deployment (or check FADEN_API_URL points at the API host).",
             EXIT.generic,
           );
@@ -193,7 +193,7 @@ const accounts = program.command("accounts").description("Manage connected socia
 
 accounts
   .command("connect <platform>")
-  .description("Connect a social account (OAuth URL to open; Bluesky connects with an app password)")
+  .description("Connect a social account (returns an OAuth URL to open, except Bluesky, which uses an app password)")
   .option("--return-to <url>", "redirect target after OAuth completes")
   .option("--identifier <identifier>", "account handle/email (credential platforms, e.g. bluesky)")
   .option("--app-password <password>", "app password from the platform's settings (credential platforms)")
@@ -207,7 +207,7 @@ Examples:
   )
   .action(async (platform: string, opts: { returnTo?: string; identifier?: string; appPassword?: string }) => {
     if (!isPlatform(platform)) {
-      throw new CliError(`unknown platform: ${platform} — valid: ${PLATFORMS.join(", ")}`, EXIT.validation);
+      throw new CliError(`unknown platform: ${platform}. Valid: ${PLATFORMS.join(", ")}`, EXIT.validation);
     }
     const api = await client();
 
@@ -254,7 +254,7 @@ Examples:
 
 accounts
   .command("rename <accountId> <handle>")
-  .description("Set an account's handle — the slug used to target it in --accounts (lowercase letters, digits, hyphens)")
+  .description("Set an account's handle, the slug that targets it in --accounts (lowercase letters, digits, hyphens)")
   .addHelpText(
     "after",
     `
@@ -378,7 +378,7 @@ function makePostCreateCommand(name: string, aliasNote = ""): Command {
   return new Command(name)
     .description(`Publish or schedule a post across platforms${aliasNote}`)
     .requiredOption("-p, --platforms <list>", "comma-separated platforms", parsePlatforms)
-    .option("-c, --content <text>", 'post text; "-" reads stdin, "@file.txt" reads a file', "")
+    .option("-c, --content <text>", 'post text, or "-" for stdin and "@file.txt" for a file', "")
     .option("--accounts <refs>", "comma-separated account ids or handles to narrow the fan-out (default: every account of each platform)", parseCommaList)
     .option("-m, --media <urls>", "comma-separated public media URLs", (v) => v.split(",").map((s) => s.trim()).filter(Boolean))
     .option("--at <when>", 'schedule time, e.g. "2026-07-01T09:00 America/New_York" or ISO 8601')
@@ -387,8 +387,8 @@ function makePostCreateCommand(name: string, aliasNote = ""): Command {
     .option("--caption <platform=text>", "per-platform caption override (repeatable)", collectCaption, {})
     .option("--board <boardId>", "Pinterest destination board (see: faden accounts boards <accountId>)")
     .option("--location <locationId>", "Google Business destination location (see: faden accounts boards <accountId>)")
-    .option("--config <json>", 'platformConfigurations/accountConfigurations as JSON; "@file.json" or "-" also work')
-    .option("--dry-run", "validate locally and print the request body; publish nothing", false)
+    .option("--config <json>", 'platformConfigurations/accountConfigurations as JSON, or "@file.json" or "-"')
+    .option("--dry-run", "validate locally and print the request body, publishing nothing", false)
     .option(
       "--idempotency-key <key>",
       "retry-safe key: replaying it returns the original post instead of publishing twice",
@@ -545,13 +545,13 @@ Examples:
 postsCmd
   .command("edit <postId>")
   .description("Edit a draft or scheduled post (fields left out keep their value)")
-  .option("-c, --content <text>", 'new post text; "-" reads stdin, "@file.txt" reads a file')
+  .option("-c, --content <text>", 'new post text, or "-" for stdin and "@file.txt" for a file')
   .option("-p, --platforms <list>", "comma-separated platforms", parsePlatforms)
   .option("--accounts <refs>", "comma-separated account ids or handles: rebuild targets to these accounts", parseCommaList)
   .option("-m, --media <urls>", "comma-separated public media URLs", (v) => v.split(",").map((s) => s.trim()).filter(Boolean))
   .option("--at <when>", 'new schedule time, e.g. "2026-07-01T09:00 America/New_York" or ISO 8601')
   .option("--caption <platform=text>", "per-platform caption override (repeatable)", collectCaption, {})
-  .option("--config <json>", 'platformConfigurations/accountConfigurations as JSON; "@file.json" or "-" also work')
+  .option("--config <json>", 'platformConfigurations/accountConfigurations as JSON, or "@file.json" or "-"')
   .addHelpText(
     "after",
     `
@@ -588,7 +588,7 @@ Examples:
       applyConfigOptions(body, { caption: raw.caption, config: resolved.config });
       if (Object.keys(body).length === 0) {
         throw new CliError(
-          "nothing to edit — pass at least one of -c/-p/--accounts/-m/--at/--caption/--config",
+          "nothing to edit. Pass at least one of -c/-p/--accounts/-m/--at/--caption/--config",
           EXIT.validation,
         );
       }
@@ -704,7 +704,7 @@ function formatAnalytics(res: AnalyticsResponse): string {
 function makeAnalyticsCommand(name: string, aliasNote = ""): Command {
   return new Command(name)
     .argument("<postId>")
-    .description(`Per-platform metrics for a post (latest snapshot per target; - = not exposed)${aliasNote}`)
+    .description(`Per-platform metrics for a post (latest snapshot per target, where - means not exposed)${aliasNote}`)
     .option("--json", "force JSON output (same as --output json)")
     .addHelpText(
       "after",
@@ -713,7 +713,7 @@ Examples:
   faden posts analytics pst_abc123
   faden posts analytics pst_abc123 --output json | jq '.targets[].latest.metrics'
 
-Analytics is a paid feature; on a free plan this exits 5 with an upgrade hint.`,
+Analytics is a paid feature. On a free plan this exits 5 with an upgrade hint.`,
     )
     .action(async (postId: string, opts: { json?: boolean }) => {
       const api = await client();
@@ -730,7 +730,7 @@ Analytics is a paid feature; on a free plan this exits 5 with an upgrade hint.`,
             ? `${teaser.snapshotCount} snapshot(s) collected${teaser.since ? ` since ${teaser.since.slice(0, 10)}` : ""}`
             : "no snapshots collected yet";
         throw new CliError(
-          `Analytics is not available on your plan — upgrade to ${requiredPlan ?? "a paid plan"} to see it (${collected}).`,
+          `Analytics is not on your plan. Upgrade to ${requiredPlan ?? "a paid plan"} to see it (${collected}).`,
           EXIT.rateLimited,
         );
       }
@@ -773,7 +773,7 @@ Examples:
 // platforms / validate — offline, no API call, no credentials
 // ---------------------------------------------------------------------------
 
-const platformsCmd = program.command("platforms").description("Per-platform limits (offline; no API call)");
+const platformsCmd = program.command("platforms").description("Per-platform limits (offline, no API call)");
 
 platformsCmd
   .command("list")
@@ -789,7 +789,7 @@ Examples:
   )
   .action((opts: { platform?: string }) => {
     if (opts.platform && !isPlatform(opts.platform)) {
-      throw new CliError(`unknown platform: ${opts.platform} — valid: ${PLATFORMS.join(", ")}`, EXIT.validation);
+      throw new CliError(`unknown platform: ${opts.platform}. Valid: ${PLATFORMS.join(", ")}`, EXIT.validation);
     }
     const wanted = opts.platform ? [opts.platform as Platform] : [...PLATFORMS];
     const rows = wanted.map((platform) => ({ platform, ...PLATFORM_CONSTRAINTS[platform] }));
@@ -810,9 +810,9 @@ Examples:
 
 program
   .command("validate")
-  .description("Check content against each platform's limits offline — no API call, no credentials")
+  .description("Check content against each platform's limits offline, with no API call and no credentials")
   .requiredOption("-p, --platforms <list>", "comma-separated platforms", parsePlatforms)
-  .option("-c, --content <text>", 'post text; "-" reads stdin, "@file.txt" reads a file', "")
+  .option("-c, --content <text>", 'post text, or "-" for stdin and "@file.txt" for a file', "")
   .option("-m, --media <urls>", "comma-separated public media URLs", (v) => v.split(",").map((s) => s.trim()).filter(Boolean))
   .option("--board <boardId>", "Pinterest destination board")
   .option("--location <locationId>", "Google Business destination location")
@@ -847,7 +847,7 @@ const keys = program.command("keys").description("Manage workspace API keys");
 
 keys
   .command("list")
-  .description("List keys (prefix + last use only; secrets are never shown)")
+  .description("List keys (prefix and last use only, never the secrets)")
   .addHelpText("after", "\nExamples:\n  faden keys list\n  faden keys list --output json | jq -r '.[].id'")
   .action(async () => {
     const api = await client();
@@ -857,7 +857,7 @@ keys
 
 keys
   .command("create <name>")
-  .description("Mint a named key — the secret is printed once, store it now")
+  .description("Mint a named key. The secret is printed once, so store it now")
   .addHelpText(
     "after",
     `
@@ -873,7 +873,7 @@ Examples:
 
 keys
   .command("revoke <keyId>")
-  .description("Revoke a key (the last active key is protected; create a replacement first)")
+  .description("Revoke a key (the last active key is protected, so create a replacement first)")
   .option("--dry-run", "show which key would be revoked without revoking it", false)
   .option("-y, --yes", "revoke without the interactive confirmation", false)
   .addHelpText(
@@ -902,7 +902,7 @@ Examples:
     // where an unintended revoke would otherwise be silent and irreversible.
     if (!opts.yes && process.stdout.isTTY) {
       throw new CliError(
-        `revoking a key is irreversible — re-run with --yes to confirm:\n  faden keys revoke ${keyId} --yes`,
+        `revoking a key is irreversible. Re-run with --yes to confirm:\n  faden keys revoke ${keyId} --yes`,
         EXIT.validation,
       );
     }
@@ -921,7 +921,7 @@ function parseEvents(value: string | undefined): string[] | undefined {
   const unknown = events.filter((e) => !(WEBHOOK_EVENTS as readonly string[]).includes(e));
   if (unknown.length > 0) {
     throw new CliError(
-      `unknown event(s): ${unknown.join(", ")} — valid: ${WEBHOOK_EVENTS.join(", ")}`,
+      `unknown event(s): ${unknown.join(", ")}. Valid: ${WEBHOOK_EVENTS.join(", ")}`,
       EXIT.validation,
     );
   }
@@ -944,7 +944,7 @@ webhooks
 
 webhooks
   .command("add <url>")
-  .description("Register an endpoint — the signing secret is printed once, store it now")
+  .description("Register an endpoint. The signing secret is printed once, so store it now")
   .option("-e, --events <list>", `comma-separated subset of: ${WEBHOOK_EVENTS.join(", ")} (default: all)`)
   .addHelpText(
     "after",
@@ -965,7 +965,7 @@ webhooks
   .command("update <webhookId>")
   .description("Change an endpoint's URL, event filter or status (the signing secret is kept)")
   .option("-u, --url <url>", "new delivery URL")
-  .option("-e, --events <list>", "new event filter; pass 'all' to receive everything")
+  .option("-e, --events <list>", "new event filter, or 'all' to receive everything")
   .option("--status <status>", "'disabled' to pause deliveries, 'active' to resume")
   .addHelpText(
     "after",
@@ -982,10 +982,10 @@ turning it back on.`,
   )
   .action(async (webhookId: string, opts: { url?: string; events?: string; status?: string }) => {
     if (opts.url === undefined && opts.events === undefined && opts.status === undefined) {
-      throw new CliError("nothing to change — pass --url, --events or --status", EXIT.validation);
+      throw new CliError("nothing to change. Pass --url, --events or --status", EXIT.validation);
     }
     if (opts.status !== undefined && !["active", "disabled"].includes(opts.status)) {
-      throw new CliError(`unknown status: ${opts.status} — valid: active, disabled`, EXIT.validation);
+      throw new CliError(`unknown status: ${opts.status}. Valid: active, disabled`, EXIT.validation);
     }
     const api = await client();
     const body: Record<string, unknown> = {};
@@ -1016,7 +1016,7 @@ A record is 'pending' while retries remain and 'failed' once the event has exhau
   )
   .action(async (webhookId: string, opts: { status?: string; limit: string; cursor?: string; all: boolean }) => {
     if (opts.status !== undefined && !(WEBHOOK_DELIVERY_STATUSES as readonly string[]).includes(opts.status)) {
-      throw new CliError(`unknown status: ${opts.status} — valid: ${WEBHOOK_DELIVERY_STATUSES.join(", ")}`, EXIT.validation);
+      throw new CliError(`unknown status: ${opts.status}. Valid: ${WEBHOOK_DELIVERY_STATUSES.join(", ")}`, EXIT.validation);
     }
     const api = await client();
     const path = `/v1/webhooks/${webhookId}/deliveries`;
@@ -1065,8 +1065,8 @@ check, so it fails like one rather than reporting a negative result as success.`
     );
     emit(result, (d: { ok: boolean; status: number | null; durationMs: number; error?: string }) =>
       d.ok
-        ? `delivered — ${d.status} in ${d.durationMs}ms`
-        : `not delivered — ${d.status ?? d.error ?? "no response"}${d.status ? ` in ${d.durationMs}ms` : ""}`,
+        ? `delivered: ${d.status} in ${d.durationMs}ms`
+        : `not delivered: ${d.status ?? d.error ?? "no response"}${d.status ? ` in ${d.durationMs}ms` : ""}`,
     );
     // Non-zero on a receiver that refused, so the command can gate a deploy without parsing
     // stdout. Deliberately `generic` and not `rateLimited`: the documented meaning of 5 is
@@ -1076,7 +1076,7 @@ check, so it fails like one rather than reporting a negative result as success.`
 
 webhooks
   .command("rm <webhookId>")
-  .description("Delete an endpoint — deliveries stop immediately")
+  .description("Delete an endpoint. Deliveries stop immediately")
   .option("--dry-run", "show which endpoint would be deleted without deleting it", false)
   .addHelpText(
     "after",
@@ -1115,7 +1115,7 @@ function collectSlot(value: string, slots: { weekday: number; time: string }[]) 
   const [day, time] = value.split("@");
   const weekday = WEEKDAYS.indexOf((day ?? "").toLowerCase());
   if (weekday === -1 || !time || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
-    throw new CliError(`invalid slot "${value}" — expected <day>@<HH:MM>, e.g. mon@09:00`, EXIT.validation);
+    throw new CliError(`invalid slot "${value}". Expected <day>@<HH:MM>, e.g. mon@09:00`, EXIT.validation);
   }
   slots.push({ weekday, time });
   return slots;
@@ -1146,7 +1146,7 @@ Examples:
   faden queue set -z Europe/Berlin -s mon@09:00 -s thu@17:30
   faden queue set -z UTC -s mon@09:00 --dry-run
 
-This REPLACES every existing slot — run faden queue list first, or --dry-run.`,
+This REPLACES every existing slot, so run faden queue list first, or --dry-run.`,
   )
   .action(async (opts: { timezone: string; slot: { weekday: number; time: string }[]; dryRun: boolean }) => {
     const body = { timezone: opts.timezone, slots: opts.slot };
@@ -1177,7 +1177,7 @@ const bulk = program.command("bulk").description("Bulk operations");
 
 bulk
   .command("import <file>")
-  .description('Import a CSV of posts (validated as a batch; any bad row rejects all). "-" reads stdin')
+  .description('Import a CSV of posts (validated as a batch, so any bad row rejects all). "-" reads stdin')
   .option("--dry-run", "print the parsed CSV without creating anything", false)
   .addHelpText(
     "after",

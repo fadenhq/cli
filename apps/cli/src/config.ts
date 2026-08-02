@@ -39,7 +39,7 @@ export async function loadConfig(): Promise<ResolvedConfig> {
     return { ...(JSON.parse(raw) as CliConfig), source: "file" };
   } catch {
     throw new CliError(
-      "not logged in — run `faden login`, or set FADEN_API_KEY for a non-interactive environment",
+      "not logged in. Run `faden login`, or set FADEN_API_KEY for a non-interactive environment",
       EXIT.auth,
     );
   }

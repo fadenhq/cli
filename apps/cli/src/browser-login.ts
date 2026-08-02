@@ -91,9 +91,9 @@ export async function browserLogin(dashboardUrl: string, options: BrowserLoginOp
     // A wrong nonce means the POST did not come from the page this CLI opened — reject it but
     // keep listening, so a stray request cannot kill the real login.
     if (body === null || form.get("state") !== state || !apiKey) {
-      return respond(400, RESPONSE_PAGE("Login failed", "Invalid callback — return to the terminal and retry <code>faden login</code>."));
+      return respond(400, RESPONSE_PAGE("Login failed", "Invalid callback. Return to the terminal and retry <code>faden login</code>."));
     }
-    respond(200, RESPONSE_PAGE("Logged in", "The faden CLI is authorized — you can close this tab and return to your terminal."));
+    respond(200, RESPONSE_PAGE("Logged in", "The faden CLI is authorized. You can close this tab and go back to your terminal."));
     settle({ apiKey, workspace: form.get("workspace") ?? undefined });
   });
 
@@ -101,7 +101,7 @@ export async function browserLogin(dashboardUrl: string, options: BrowserLoginOp
   const authorizeUrl =
     `${dashboardUrl}/cli-auth?redirect_uri=${encodeURIComponent(`http://127.0.0.1:${port}/callback`)}&state=${state}`;
 
-  log("Opening your browser to log in — if nothing opens, visit:\n");
+  log("Opening your browser to log in. If nothing opens, visit:\n");
   log(`  ${authorizeUrl}\n`);
   openUrl(authorizeUrl);
 
@@ -110,7 +110,7 @@ export async function browserLogin(dashboardUrl: string, options: BrowserLoginOp
     return await Promise.race([
       received,
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("browser login timed out — retry, or pass --key <apiKey>")), timeoutMs).unref(),
+        setTimeout(() => reject(new Error("browser login timed out. Retry, or pass --key <apiKey>")), timeoutMs).unref(),
       ),
     ]);
   } finally {

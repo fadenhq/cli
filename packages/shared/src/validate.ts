@@ -1,10 +1,12 @@
 import type { PublishOptions } from "./overrides.js";
 import { PLATFORM_CONSTRAINTS, type Platform } from "./platforms.js";
+import { PLANS, planAllowsPlatform, type PlanName } from "./plans.js";
 import type { MediaRef } from "./types.js";
 
 export interface ValidationIssue {
   platform: Platform;
   code:
+    | "platform_not_in_plan"
     | "content_too_long"
     | "too_many_media"
     | "media_required"
@@ -14,6 +16,23 @@ export interface ValidationIssue {
     | "board_required"
     | "location_required";
   detail: string;
+}
+
+/**
+ * The plan half of pre-flight (#133), kept out of `validateForPlatform` because it needs something
+ * the constraint matrix cannot know: the workspace's plan. A surface that already holds it (the
+ * dashboard reads `GET /v1/usage`) folds these issues in beside the constraint issues; one that
+ * doesn't (the CLI's offline `--dry-run`) stays silent rather than guessing — a mis-gate would be
+ * worse than the API's honest 422. The wording tracks `posts-service.ts`, so the sentence a caller
+ * reads while composing is the one the API would have sent back.
+ */
+export function planIssuesForPlatform(plan: PlanName, platform: Platform): ValidationIssue[] {
+  if (planAllowsPlatform(PLANS[plan], platform)) return [];
+  return [{
+    platform,
+    code: "platform_not_in_plan",
+    detail: `${platform} is not included in the ${plan} plan. Upgrade to post there`,
+  }];
 }
 
 /**
