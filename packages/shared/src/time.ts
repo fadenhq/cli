@@ -4,7 +4,11 @@
 export function zonedWallTimeToUtc(local: string, timeZone: string): string {
   const guess = new Date(`${local}Z`); // pretend the wall time is UTC
   if (Number.isNaN(guess.getTime())) throw new Error(`invalid datetime: ${local}`);
-  const offsetMin = tzOffsetMinutes(timeZone, guess);
+  // The offset at "wall time read as UTC" is up to a day's offset away from the real instant, so
+  // on a DST-change day it can be the offset from the other side of the change. Re-read the
+  // offset at the first estimate, which is on the correct side for every wall time that exists.
+  const first = guess.getTime() - tzOffsetMinutes(timeZone, guess) * 60_000;
+  const offsetMin = tzOffsetMinutes(timeZone, new Date(first));
   return new Date(guess.getTime() - offsetMin * 60_000).toISOString();
 }
 
