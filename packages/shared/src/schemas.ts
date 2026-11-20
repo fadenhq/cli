@@ -341,10 +341,30 @@ export const ssoConnectionSchema = z
   })
   .strict();
 
+/** `http://` followed by a loopback host and then a port, path, query, fragment or the end. */
+const LOOPBACK_HTTP = /^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:[/?#]|$)/i;
+
+/** True for an `http://` URL on a loopback host, the one plain-http webhook URL allowed in dev. */
+export function isLoopbackHttpUrl(value: string): boolean {
+  return LOOPBACK_HTTP.test(value);
+}
+
+/**
+ * A webhook delivery URL (#152): `https:` only, so signed payloads never cross the network in
+ * plaintext. Plain `http:` passes here for loopback hosts, the one place it can be useful (a
+ * receiver next to `wrangler dev`); the API refuses those too outside local dev. Everything
+ * else, `file:`/`ftp:` included, is rejected.
+ */
+export const webhookUrlSchema = z
+  .string()
+  .url()
+  .refine((value) => /^https:\/\//i.test(value) || LOOPBACK_HTTP.test(value), "webhook URLs must use https (http is only allowed for localhost)")
+  .meta({ format: "uri" });
+
 /** Body of `POST /v1/webhooks`: register a delivery endpoint for signed status events. */
 export const createWebhookSchema = z
   .object({
-    url: z.string().url(),
+    url: webhookUrlSchema,
     /** Event types to deliver; omit to subscribe to all events. */
     events: z.array(z.enum(WEBHOOK_EVENTS)).min(1).optional(),
   })
@@ -360,7 +380,7 @@ export type CreateWebhookInput = z.infer<typeof createWebhookSchema>;
  */
 export const updateWebhookSchema = z
   .object({
-    url: z.string().url().optional(),
+    url: webhookUrlSchema.optional(),
     events: z.array(z.enum(WEBHOOK_EVENTS)).min(1).nullable().optional(),
     status: z.enum(["active", "disabled"]).optional(),
   })

@@ -4,7 +4,15 @@
  * broke, not just the OpenAPI snapshot.
  */
 import { describe, expect, it } from "vitest";
-import { createPostSchema, isoDateTimeSchema, listPostsQuerySchema, registerMediaSchema } from "./schemas.js";
+import {
+  createPostSchema,
+  createWebhookSchema,
+  isoDateTimeSchema,
+  listPostsQuerySchema,
+  registerMediaSchema,
+  updateWebhookSchema,
+  webhookUrlSchema,
+} from "./schemas.js";
 import { ACCEPTED_MEDIA_TYPES, isAcceptedMediaType } from "./platforms.js";
 
 describe("isoDateTimeSchema", () => {
@@ -72,5 +80,27 @@ describe("registerMediaSchema (#151)", () => {
     expect(registerMediaSchema.safeParse({ mimeType: "image/jpeg" }).success).toBe(false);
     expect(registerMediaSchema.safeParse({ mimeType: "image/jpeg", sizeBytes: 0 }).success).toBe(false);
     expect(registerMediaSchema.safeParse({ mimeType: "image/jpeg", sizeBytes: -1 }).success).toBe(false);
+  });
+});
+
+describe("webhookUrlSchema (#152)", () => {
+  it.each(["https://hooks.example.com/faden", "http://localhost:8787/hook", "http://127.0.0.1:9000/hook", "http://[::1]/hook"])(
+    "accepts %s",
+    (url) => expect(webhookUrlSchema.safeParse(url).success).toBe(true),
+  );
+
+  it.each([
+    ["plaintext http", "http://hooks.example.com/faden"],
+    ["http to a host that merely starts with localhost", "http://localhost.evil.test/hook"],
+    ["http with localhost as userinfo", "http://localhost@evil.test/hook"],
+    ["file", "file:///etc/passwd"],
+    ["ftp", "ftp://example.com/hook"],
+    ["not a URL", "hooks.example.com"],
+  ])("rejects %s", (_name, url) => expect(webhookUrlSchema.safeParse(url).success).toBe(false));
+
+  it("guards both create and update", () => {
+    expect(createWebhookSchema.safeParse({ url: "http://hooks.example.com" }).success).toBe(false);
+    expect(updateWebhookSchema.safeParse({ url: "http://hooks.example.com" }).success).toBe(false);
+    expect(updateWebhookSchema.safeParse({ status: "active" }).success).toBe(true);
   });
 });
