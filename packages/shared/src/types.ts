@@ -66,7 +66,16 @@ export interface PublishRequest {
    * native key embeds a timestamp, such as Bluesky's ATProto TID).
    */
   createdAt?: string;
+  /**
+   * Set when resuming a publish the platform accepted earlier but was still processing (#156): the
+   * connector's own `pending.checkpoint` from that call. The connector must continue from it (poll,
+   * then finish) and never start a second upload.
+   */
+  checkpoint?: PublishCheckpoint;
 }
+
+/** Connector-defined, JSON-serializable state for resuming an accepted-but-processing publish. */
+export type PublishCheckpoint = Record<string, unknown>;
 
 /** Outcome a connector returns from `publish`. */
 export interface PublishResult {
@@ -77,6 +86,12 @@ export interface PublishResult {
   errorDetail?: string;
   /** On `rate_limited`: seconds the platform asked us to wait (Retry-After / reset headers). */
   retryAfterSeconds?: number;
+  /**
+   * The platform accepted the upload but is still processing it (#156). The caller stores
+   * `checkpoint` and calls `publish` again later with it, instead of the connector sleeping
+   * through the wait. Not an error, and doesn't count against retries.
+   */
+  pending?: { checkpoint: PublishCheckpoint; retryAfterSeconds?: number };
 }
 
 /**
