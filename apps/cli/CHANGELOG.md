@@ -14,6 +14,20 @@ reading back, not because a client needs it to stay current.
 Entries land here as they merge and get a version heading at release, so nothing reaches npm
 unrecorded.
 
+### Removed
+
+- `faden accounts connect --return-to` and the `returnTo` field of the `connect_account` MCP tool.
+  The API now binds a `returnTo` connect to the browser that started it, so from a CLI or agent
+  these could only fail (400 or 403). OAuth connects now end on a faden page naming the target
+  workspace, where the user clicks Continue.
+
+### Changed
+
+- MCP date-time fields (`scheduledFor` and the list filters) also accept times without seconds,
+  e.g. `2026-07-01T09:00+02:00`, and reject impossible calendar dates. CLI `--at` is unchanged.
+- `@modelcontextprotocol/sdk` raised to ^1.32.2, clearing its OAuth and session advisories, and
+  zod to ^4.6.7.
+
 ## [0.4.1] - 2026-08-02
 
 ### Changed
