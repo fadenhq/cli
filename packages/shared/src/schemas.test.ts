@@ -4,7 +4,8 @@
  * broke, not just the OpenAPI snapshot.
  */
 import { describe, expect, it } from "vitest";
-import { createPostSchema, isoDateTimeSchema, listPostsQuerySchema } from "./schemas.js";
+import { createPostSchema, isoDateTimeSchema, listPostsQuerySchema, registerMediaSchema } from "./schemas.js";
+import { ACCEPTED_MEDIA_TYPES, isAcceptedMediaType } from "./platforms.js";
 
 describe("isoDateTimeSchema", () => {
   it.each([
@@ -50,5 +51,26 @@ describe("time fields use it", () => {
   it("list filters accept minute precision", () => {
     const res = listPostsQuerySchema.safeParse({ from: "2026-07-01T00:00Z", scheduledTo: "2026-08-01T00:00+02:00" });
     expect(res.success).toBe(true);
+  });
+});
+
+describe("registerMediaSchema (#151)", () => {
+  it.each(ACCEPTED_MEDIA_TYPES)("accepts supported media type %s", (mimeType) => {
+    expect(isAcceptedMediaType(mimeType)).toBe(true);
+    expect(registerMediaSchema.safeParse({ mimeType, sizeBytes: 1024 }).success).toBe(true);
+  });
+
+  it.each(["text/html", "image/svg+xml", "application/javascript", "application/octet-stream", "text/plain"])(
+    "rejects unsupported or active type %s",
+    (mimeType) => {
+      expect(isAcceptedMediaType(mimeType)).toBe(false);
+      expect(registerMediaSchema.safeParse({ mimeType, sizeBytes: 1024 }).success).toBe(false);
+    },
+  );
+
+  it("requires a positive integer sizeBytes", () => {
+    expect(registerMediaSchema.safeParse({ mimeType: "image/jpeg" }).success).toBe(false);
+    expect(registerMediaSchema.safeParse({ mimeType: "image/jpeg", sizeBytes: 0 }).success).toBe(false);
+    expect(registerMediaSchema.safeParse({ mimeType: "image/jpeg", sizeBytes: -1 }).success).toBe(false);
   });
 });

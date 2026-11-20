@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { HANDLE_MAX_LENGTH, handlePattern } from "./handles.js";
 import { BILLING_MODES } from "./plans.js";
-import { PLATFORMS } from "./platforms.js";
+import { ACCEPTED_MEDIA_TYPES, PLATFORMS } from "./platforms.js";
 import { POST_STATUSES, WEBHOOK_DELIVERY_STATUSES, WEBHOOK_EVENTS } from "./types.js";
 
 export const platformSchema = z.enum(PLATFORMS);
@@ -385,8 +385,8 @@ export type ListWebhookDeliveriesQuery = z.infer<typeof listWebhookDeliveriesQue
 /** Body of `POST /v1/media`: reserve an R2 object before uploading bytes. */
 export const registerMediaSchema = z
   .object({
-    mimeType: z.string().min(1),
-    sizeBytes: z.number().int().nonnegative().default(0),
+    mimeType: z.enum(ACCEPTED_MEDIA_TYPES),
+    sizeBytes: z.number().int().positive(),
     /** Video length; declare it so pre-flight can enforce per-platform duration limits (media is pass-through and never probed). */
     durationSeconds: z.number().positive().optional(),
   })

@@ -59,8 +59,18 @@ export interface PlatformConstraints {
 const MB = 1024 * 1024;
 const GB = 1024 * MB;
 
-const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
-const VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm"] as const;
+export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
+export const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm"] as const;
+/** Every media MIME type accepted by at least one platform in the constraint matrix (#151). */
+export const ACCEPTED_MEDIA_TYPES = [...ACCEPTED_IMAGE_TYPES, ...ACCEPTED_VIDEO_TYPES] as const;
+export type AcceptedMediaType = (typeof ACCEPTED_MEDIA_TYPES)[number];
+
+export function isAcceptedMediaType(value: string): value is AcceptedMediaType {
+  return (ACCEPTED_MEDIA_TYPES as readonly string[]).includes(value);
+}
+
+const IMAGE_TYPES = ACCEPTED_IMAGE_TYPES;
+const VIDEO_TYPES = ACCEPTED_VIDEO_TYPES;
 
 export const PLATFORM_CONSTRAINTS: Record<Platform, PlatformConstraints> = {
   x: {

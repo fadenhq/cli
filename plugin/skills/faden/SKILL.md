@@ -16,6 +16,7 @@ platform, with per-target results and stable error codes.
 - A platform must be connected before posting to it. Check with `list_accounts` /
   `npx @fadenhq/cli accounts list`, and connect with `connect_account` / `npx @fadenhq/cli accounts connect <platform>`.
   Both return an OAuth URL **the user must open in a browser**, and you cannot complete OAuth for them.
+  After consent, faden shows a page naming the target workspace; the user clicks Continue there to finish.
   Exception: **bluesky** connects directly with credentials the user provides (no URL):
   `connect_account { "platform": "bluesky", "identifier": "you.bsky.social", "appPassword": "…" }`.
   The app password comes from bsky.app → Settings → Privacy and Security → App Passwords, never the main password.

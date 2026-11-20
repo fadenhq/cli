@@ -142,13 +142,13 @@ export const TOOLS: ToolDef[] = [
     name: "connect_account",
     description:
       "Connect a social account. For OAuth platforms this returns an authUrl the user must open " +
-      "in a browser to authorize. The account appears in list_accounts once they complete it. " +
+      "in a browser to authorize, then confirm on the faden page that names the target workspace. " +
+      "The account appears in list_accounts once they complete both steps. " +
       "Bluesky instead connects directly: pass identifier (handle) + appPassword (from " +
       "bsky.app Settings → App Passwords) and the account is connected in this call.",
     schema: z
       .object({
         platform: z.enum(PLATFORMS),
-        returnTo: z.string().url().optional().describe("Redirect target after OAuth completes (OAuth platforms)"),
         identifier: z.string().optional().describe("Account handle/email (credential platforms, e.g. bluesky)"),
         appPassword: z.string().optional().describe("App password (credential platforms, never the main password)"),
       })
@@ -160,8 +160,7 @@ export const TOOLS: ToolDef[] = [
           appPassword: args.appPassword,
         });
       }
-      const query = args.returnTo ? `?returnTo=${encodeURIComponent(args.returnTo as string)}` : "";
-      return client.post(`/v1/accounts/${args.platform as string}/connect${query}`);
+      return client.post(`/v1/accounts/${args.platform as string}/connect`);
     },
   },
   {

@@ -194,7 +194,6 @@ const accounts = program.command("accounts").description("Manage connected socia
 accounts
   .command("connect <platform>")
   .description("Connect a social account (returns an OAuth URL to open, except Bluesky, which uses an app password)")
-  .option("--return-to <url>", "redirect target after OAuth completes")
   .option("--identifier <identifier>", "account handle/email (credential platforms, e.g. bluesky)")
   .option("--app-password <password>", "app password from the platform's settings (credential platforms)")
   .addHelpText(
@@ -202,10 +201,9 @@ accounts
     `
 Examples:
   faden accounts connect x                       prints an authUrl to open in a browser
-  faden accounts connect linkedin --return-to https://example.com/done
   faden accounts connect bluesky --identifier you.bsky.social --app-password xxxx-xxxx-xxxx-xxxx`,
   )
-  .action(async (platform: string, opts: { returnTo?: string; identifier?: string; appPassword?: string }) => {
+  .action(async (platform: string, opts: { identifier?: string; appPassword?: string }) => {
     if (!isPlatform(platform)) {
       throw new CliError(`unknown platform: ${platform}. Valid: ${PLATFORMS.join(", ")}`, EXIT.validation);
     }
@@ -229,8 +227,9 @@ Examples:
       return;
     }
 
-    const query = opts.returnTo ? `?returnTo=${encodeURIComponent(opts.returnTo)}` : "";
-    const res = await api.post<{ authUrl: string }>(`/v1/accounts/${platform}/connect${query}`);
+    // No returnTo: the API then shows a confirmation page naming the workspace after consent.
+    // (returnTo binds the flow to the browser that called connect, which a CLI is not.)
+    const res = await api.post<{ authUrl: string }>(`/v1/accounts/${platform}/connect`);
     emit(res, (d: { authUrl: string }) => `Open this URL in your browser to authorize:\n\n${d.authUrl}`);
     hint("faden accounts list   # once the browser flow completes");
   });

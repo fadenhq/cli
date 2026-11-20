@@ -55,6 +55,17 @@ export interface PublishRequest {
   externalAccountId: string;
   /** Merged platform-specific options (account > platform); absent when the post has none. */
   options?: PublishOptions;
+  /**
+   * Stable per-target key (the `post_targets.id`) passed to platforms that support client-supplied
+   * deduplication (e.g. Bluesky's `rkey`). Ensures a redelivered attempt after a lost response
+   * cannot create a second native post.
+   */
+  idempotencyKey?: string;
+  /**
+   * Immutable ISO 8601 UTC timestamp of the post (used with `idempotencyKey` when a platform's
+   * native key embeds a timestamp, such as Bluesky's ATProto TID).
+   */
+  createdAt?: string;
 }
 
 /** Outcome a connector returns from `publish`. */
