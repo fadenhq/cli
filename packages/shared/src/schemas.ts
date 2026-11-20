@@ -21,6 +21,35 @@ const timezoneSchema = z
 
 export const mediaUrlSchema = z.string().url();
 
+/**
+ * ISO 8601 timestamp with an explicit UTC offset, the one shape every API time field accepts.
+ * Seconds and fractions are optional ("2026-07-01T09:00Z" is valid): spelled out here instead of
+ * relying on `z.string().datetime()`, whose accepted forms changed between zod releases (4.6
+ * started requiring seconds). Values are normalized with `toISOString()` before storage, because
+ * timestamps are compared as strings.
+ */
+const ISO_DATETIME =
+  /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/;
+
+function isCalendarDate(value: string): boolean {
+  const match = ISO_DATETIME.exec(value);
+  if (!match) return true; // the regex has already rejected it; don't report twice
+  const [, y, m, d] = match.map(Number);
+  // Date.parse rolls 2026-02-30 over to March 2, so check the day against the real month length.
+  // Computed directly: Date.UTC would remap years 0–99 to 1900–1999.
+  if (m! < 1 || m! > 12 || d! < 1) return false;
+  const leap = (y! % 4 === 0 && y! % 100 !== 0) || y! % 400 === 0;
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m! - 1]!;
+  return d! <= days;
+}
+
+export const isoDateTimeSchema = z
+  .string()
+  .regex(ISO_DATETIME, "expected an ISO 8601 date-time with an offset, e.g. 2026-07-01T09:00Z")
+  .refine(isCalendarDate, "not a real calendar date")
+  // Keep the OpenAPI `format` so client generators still map these fields to a date type.
+  .meta({ format: "date-time" });
+
 /** Fields every platform override may set: caption + media replacing the base post's. */
 const overrideBase = {
   content: z.string().max(63206).optional(),
@@ -137,7 +166,7 @@ export const createPostSchema = z
      */
     accountIds: z.array(z.string().min(1)).min(1).optional(),
     mediaUrls: z.array(mediaUrlSchema).max(10).default([]),
-    scheduledFor: z.string().datetime({ offset: true }).optional(),
+    scheduledFor: isoDateTimeSchema.optional(),
     timezone: timezoneSchema.optional(),
     /** Assign the next free posting-queue slot as the schedule (requires configured slots). */
     useQueue: z.boolean().default(false),
@@ -186,7 +215,7 @@ export const updatePostSchema = z
      * either present rebuilds the (still pending) target set. Omit both to keep current targets. */
     accountIds: z.array(z.string().min(1)).min(1).optional(),
     mediaUrls: z.array(mediaUrlSchema).max(10).optional(),
-    scheduledFor: z.string().datetime({ offset: true }).optional(),
+    scheduledFor: isoDateTimeSchema.optional(),
     timezone: timezoneSchema.optional(),
     /** When present, replaces the stored per-platform override map wholesale. */
     platformConfigurations: platformConfigurationsSchema.optional(),
@@ -203,7 +232,7 @@ export type UpdatePostInput = z.infer<typeof updatePostSchema>;
  * A future `scheduledFor` queues it for that time; none (and none stored) publishes immediately.
  */
 export const approvePostSchema = z
-  .object({ scheduledFor: z.string().datetime({ offset: true }).optional() })
+  .object({ scheduledFor: isoDateTimeSchema.optional() })
   .strict();
 
 /** Query of `GET /v1/posts`: filters + cursor pagination. */
@@ -212,13 +241,13 @@ export const listPostsQuerySchema = z
     status: z.enum(POST_STATUSES).optional(),
     platform: platformSchema.optional(),
     /** Inclusive `createdAt` lower bound. */
-    from: z.string().datetime({ offset: true }).optional(),
+    from: isoDateTimeSchema.optional(),
     /** Exclusive `createdAt` upper bound. */
-    to: z.string().datetime({ offset: true }).optional(),
+    to: isoDateTimeSchema.optional(),
     /** Inclusive `scheduledFor` lower bound; posts with no schedule are excluded. */
-    scheduledFrom: z.string().datetime({ offset: true }).optional(),
+    scheduledFrom: isoDateTimeSchema.optional(),
     /** Exclusive `scheduledFor` upper bound; posts with no schedule are excluded. */
-    scheduledTo: z.string().datetime({ offset: true }).optional(),
+    scheduledTo: isoDateTimeSchema.optional(),
     limit: z.coerce.number().int().min(1).max(100).default(20),
     cursor: z.string().optional(),
   })
@@ -369,7 +398,7 @@ export const bulkRowSchema = z
     content: z.string().max(63206).default(""),
     platforms: z.array(platformSchema).min(1),
     mediaUrls: z.array(mediaUrlSchema).max(10).default([]),
-    scheduledFor: z.string().datetime({ offset: true }).optional(),
+    scheduledFor: isoDateTimeSchema.optional(),
     timezone: timezoneSchema.optional(),
   })
   .strict();

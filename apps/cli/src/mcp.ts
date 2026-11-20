@@ -3,6 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import {
   createPostSchema,
+  isoDateTimeSchema,
   PLATFORM_CONSTRAINTS,
   PLATFORMS,
   POST_STATUSES,
@@ -35,8 +36,8 @@ const listPostsInput = z
   .object({
     status: z.enum(POST_STATUSES).optional().describe("Filter by aggregate post status"),
     platform: z.enum(PLATFORMS).optional().describe("Only posts targeting this platform"),
-    from: z.string().datetime({ offset: true }).optional().describe("createdAt lower bound (inclusive, ISO 8601)"),
-    to: z.string().datetime({ offset: true }).optional().describe("createdAt upper bound (exclusive, ISO 8601)"),
+    from: isoDateTimeSchema.optional().describe("createdAt lower bound (inclusive, ISO 8601)"),
+    to: isoDateTimeSchema.optional().describe("createdAt upper bound (exclusive, ISO 8601)"),
     limit: z.number().int().min(1).max(100).optional().describe("Page size (default 20)"),
     cursor: z.string().optional().describe("Opaque cursor from the previous page"),
   })
@@ -112,9 +113,7 @@ export const TOOLS: ToolDef[] = [
       "Approve a draft post after human sign-off: it publishes immediately, or at scheduledFor " +
       "when given (or when the draft already has one in the future). Only drafts can be approved.",
     schema: postIdSchema.extend({
-      scheduledFor: z
-        .string()
-        .datetime({ offset: true })
+      scheduledFor: isoDateTimeSchema
         .optional()
         .describe("Publish time (ISO 8601 with offset); omit to use the draft's stored time or publish now"),
     }),
