@@ -20,6 +20,9 @@ platform, with per-target results and stable error codes.
   Exception: **bluesky** connects directly with credentials the user provides (no URL):
   `connect_account { "platform": "bluesky", "identifier": "you.bsky.social", "appPassword": "…" }`.
   The app password comes from bsky.app → Settings → Privacy and Security → App Passwords, never the main password.
+- To disconnect an account, call `disconnect_account` first as a dry run (its default), show the user
+  which account it would remove, and only call it again with `dryRun: false` once they confirm. Its
+  scheduled posts fail and reconnecting needs the user to authorize again. Never do it unprompted.
 
 ## Check before you post
 

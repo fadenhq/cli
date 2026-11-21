@@ -46,6 +46,7 @@ describe("faden MCP server", () => {
         "cancel_post",
         "connect_account",
         "create_post",
+        "disconnect_account",
         "get_post_status",
         "get_usage",
         "list_accounts",
@@ -139,6 +140,31 @@ describe("faden MCP server", () => {
       { method: "POST", path: "/v1/accounts/threads/connect", body: undefined },
       { method: "GET", path: "/v1/accounts" },
     ]);
+  });
+
+  it("disconnect_account previews by default and only deletes when dryRun is false (#159)", async () => {
+    const listed = { accounts: [{ id: "acc_1", handle: "main-brand", platform: "x", status: "active" }] };
+    const api = fakeApi({ "/v1/accounts": listed });
+    const client = await connect(api);
+
+    const preview = await client.callTool({ name: "disconnect_account", arguments: { account: "main-brand" } });
+    expect(api.calls.filter((c) => c.method !== "GET")).toEqual([]);
+    const text = (preview.content as Array<{ text: string }>)[0]!.text;
+    expect(JSON.parse(text)).toMatchObject({ dryRun: true, wouldDisconnect: true, account: { id: "acc_1" } });
+    expect(text).toContain("confirm");
+
+    await client.callTool({ name: "disconnect_account", arguments: { account: "main-brand", dryRun: false } });
+    expect(api.calls.at(-1)).toEqual({ method: "DELETE", path: "/v1/accounts/acc_1" });
+  });
+
+  it("disconnect_account reports an unknown account as a tool error, deleting nothing", async () => {
+    const api = fakeApi({ "/v1/accounts": { accounts: [] } });
+    const client = await connect(api);
+
+    const res = await client.callTool({ name: "disconnect_account", arguments: { account: "nope", dryRun: false } });
+
+    expect(res.isError).toBe(true);
+    expect(api.calls.filter((c) => c.method !== "GET")).toEqual([]);
   });
 
   it("answers the offline tools without touching the API", async () => {

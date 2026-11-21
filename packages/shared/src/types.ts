@@ -112,6 +112,8 @@ export const ERROR_CODES = [
   "auth_expired",
   /** The account's grant was revoked or its refresh token rejected; the user must reconnect. */
   "account_revoked",
+  /** The account was disconnected from the workspace (#159); its tokens are gone. */
+  "account_disconnected",
   "media_invalid",
   "content_invalid",
   "permission_denied",

@@ -216,6 +216,7 @@ describe("--dry-run never changes anything", () => {
     routes["GET /v1/keys"] = { status: 200, body: { keys: [{ id: "key_1" }] } };
     routes["GET /v1/webhooks"] = { status: 200, body: { webhooks: [{ id: "wh_1" }] } };
     routes["GET /v1/queue"] = { status: 200, body: { timezone: "UTC", slots: [] } };
+    routes["GET /v1/accounts"] = { status: 200, body: { accounts: [{ id: "acc_1", handle: "main-brand", platform: "x", status: "active" }] } };
   }
 
   const csv = join(mkdtempSync(join(tmpdir(), "faden-cli-")), "posts.csv");
@@ -227,6 +228,7 @@ describe("--dry-run never changes anything", () => {
     ["posts cancel", ["posts", "cancel", "pst_1", "--dry-run"]],
     ["keys revoke", ["keys", "revoke", "key_1", "--dry-run"]],
     ["webhooks rm", ["webhooks", "rm", "wh_1", "--dry-run"]],
+    ["accounts disconnect", ["accounts", "disconnect", "main-brand", "--dry-run"]],
     ["queue set", ["queue", "set", "-z", "UTC", "-s", "mon@09:00", "--dry-run"]],
     ["bulk import", ["bulk", "import", csv, "--dry-run"]],
   ])("%s", async (_label, args) => {
@@ -273,5 +275,29 @@ describe("login --key", () => {
     await run(["posts", "list"], { env: { XDG_CONFIG_HOME: home, FADEN_API_KEY: "fdn_live_env" } });
 
     expect(requests[0]!.headers.authorization).toBe("Bearer fdn_live_env");
+  });
+});
+
+describe("accounts disconnect (#159)", () => {
+  const listed = { status: 200, body: { accounts: [{ id: "acc_1", handle: "main-brand", platform: "x", status: "active" }] } };
+
+  it("resolves a handle to the account and disconnects it", async () => {
+    routes["GET /v1/accounts"] = listed;
+    routes["DELETE /v1/accounts/acc_1"] = { status: 200, body: { id: "acc_1", status: "disconnected", revoked: true, failedTargets: 0 } };
+
+    const res = await run(["accounts", "disconnect", "main-brand"]);
+
+    expect(res.code, res.stderr).toBe(0);
+    expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(["GET /v1/accounts", "DELETE /v1/accounts/acc_1"]);
+    expect(JSON.parse(res.stdout)).toMatchObject({ status: "disconnected" });
+  });
+
+  it("exits 4 for an unknown account, without deleting anything", async () => {
+    routes["GET /v1/accounts"] = listed;
+
+    const res = await run(["accounts", "disconnect", "nope"]);
+
+    expect(res.code).toBe(4);
+    expect(requests.filter((r) => r.method !== "GET")).toEqual([]);
   });
 });

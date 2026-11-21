@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { disconnectPlan, findAccount, type AccountRow } from "./accounts.js";
 import { createRequire } from "node:module";
 import {
   CREDENTIAL_CONNECT_PLATFORMS,
@@ -264,6 +265,33 @@ Examples:
   .action(async (accountId: string, handle: string) => {
     const api = await client();
     emit(await api.patch(`/v1/accounts/${accountId}`, { handle }));
+  });
+
+accounts
+  .command("disconnect <account>")
+  .description("Disconnect an account by id or handle: revokes the grant, deletes its stored tokens, fails its pending posts")
+  .option("--dry-run", "show which account would be disconnected without disconnecting it", false)
+  .addHelpText(
+    "after",
+    `
+Examples:
+  faden accounts disconnect main-brand --dry-run
+  faden accounts disconnect acc_123
+
+The account stays listed as "disconnected" and stops counting toward the plan's account limit.
+Connecting it again later reactivates it.`,
+  )
+  .action(async (ref: string, opts: { dryRun: boolean }) => {
+    const api = await client();
+    const { accounts: all } = await api.get<{ accounts: AccountRow[] }>("/v1/accounts");
+    const account = findAccount(all, ref);
+    if (!account) throw new CliError(`no account with id or handle "${ref}"`, EXIT.notFound);
+    if (opts.dryRun) {
+      emit(disconnectPlan(account));
+      return;
+    }
+    emit(await api.delete(`/v1/accounts/${account.id}`));
+    hint("faden accounts list");
   });
 
 accounts

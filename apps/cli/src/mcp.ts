@@ -1,3 +1,4 @@
+import { disconnectPlan, findAccount, type AccountRow } from "./accounts.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
@@ -137,6 +138,37 @@ export const TOOLS: ToolDef[] = [
       "Account ids are the keys accepted by accountConfigurations.",
     schema: z.object({}).strict(),
     handler: (client) => client.get("/v1/accounts"),
+  },
+  {
+    name: "disconnect_account",
+    description:
+      "Disconnect a social account (by account id or handle). DESTRUCTIVE: the platform grant is " +
+      "revoked where possible, faden deletes the stored tokens, and every scheduled post to this " +
+      "account fails with account_disconnected; reconnecting needs the user to authorize again. " +
+      "Runs as a dry run by default and changes nothing: it returns the account it would " +
+      "disconnect. Show that to the user and get their explicit confirmation before calling again " +
+      "with dryRun: false. Never disconnect on your own initiative.",
+    schema: z
+      .object({
+        account: z.string().min(1).describe("Account id or handle, from list_accounts"),
+        dryRun: z
+          .boolean()
+          .default(true)
+          .describe("true (default) only previews; false disconnects, after the user confirmed"),
+      })
+      .strict(),
+    handler: async (client, args) => {
+      const { accounts } = await client.get<{ accounts: AccountRow[] }>("/v1/accounts");
+      const account = findAccount(accounts, args.account as string);
+      if (!account) throw new Error(`no account with id or handle "${args.account as string}"`);
+      if (args.dryRun !== false) {
+        return {
+          ...disconnectPlan(account),
+          next: "Nothing was changed. Ask the user to confirm, then call disconnect_account again with dryRun: false.",
+        };
+      }
+      return client.delete(`/v1/accounts/${encodeURIComponent(account.id)}`);
+    },
   },
   {
     name: "connect_account",

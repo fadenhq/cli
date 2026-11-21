@@ -14,6 +14,14 @@ reading back, not because a client needs it to stay current.
 Entries land here as they merge and get a version heading at release, so nothing reaches npm
 unrecorded.
 
+### Added
+
+- `faden accounts disconnect <id|handle> [--dry-run]`: revokes the grant at the platform where it can,
+  deletes the stored tokens and fails the account's pending posts with `account_disconnected`. The
+  account stays listed as `disconnected`. New error code `account_disconnected` in target results.
+- MCP tool `disconnect_account` (`account`, `dryRun`, default `true`): previews by default; the
+  description tells agents to get the user's confirmation before calling it with `dryRun: false`.
+
 ### Removed
 
 - `faden accounts connect --return-to` and the `returnTo` field of the `connect_account` MCP tool.
