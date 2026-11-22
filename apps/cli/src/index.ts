@@ -776,7 +776,7 @@ program.addCommand(makeAnalyticsCommand("analytics", " (alias for `faden posts a
 // media
 // ---------------------------------------------------------------------------
 
-const media = program.command("media").description("Upload media for posts");
+const media = program.command("media").description("Upload, list and delete post media");
 
 media
   .command("upload <file>")
@@ -794,6 +794,85 @@ Examples:
     const uploaded = await uploadMedia(api, file, opts.mimeType);
     emit(uploaded, (d: { publicUrl: string }) => d.publicUrl);
     hint(`faden posts create -p x -c "…" -m ${uploaded.publicUrl}`);
+  });
+
+media
+  .command("list")
+  .description("List uploaded media, newest first, with the posts using each and its size")
+  .option("--limit <n>", "page size (max 100)", "20")
+  .option("--cursor <cursor>", "pagination cursor from the previous page")
+  .option("--all", "follow the cursor and return every upload", false)
+  .addHelpText(
+    "after",
+    `
+Examples:
+  faden media list
+  faden media list --all --output json | jq '[.media[] | select(.posts == [])]'   unused uploads`,
+  )
+  .action(async (opts: { limit: string; cursor?: string; all: boolean }) => {
+    const api = await client();
+    const query = new URLSearchParams({ limit: opts.limit });
+    if (!opts.all) {
+      if (opts.cursor) query.set("cursor", opts.cursor);
+      const res = await api.get<{ nextCursor: string | null }>(`/v1/media?${query.toString()}`);
+      emit(res);
+      if (res.nextCursor) hint(`faden media list --cursor ${res.nextCursor}`, "faden media list --all");
+      return;
+    }
+    const items: unknown[] = [];
+    let cursor = opts.cursor;
+    do {
+      if (cursor) query.set("cursor", cursor);
+      const page = await api.get<{ media: unknown[]; nextCursor: string | null }>(`/v1/media?${query.toString()}`);
+      items.push(...page.media);
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+    emit({ media: items, nextCursor: null });
+  });
+
+media
+  .command("rm <mediaId>")
+  .description("Delete an upload and free its storage. Refused while a draft/scheduled post uses it")
+  .option("--dry-run", "show the upload and the posts using it without deleting", false)
+  .option("-y, --yes", "delete without the interactive confirmation", false)
+  .addHelpText(
+    "after",
+    `
+Examples:
+  faden media rm med_123 --dry-run
+  faden media rm med_123 --yes      required when stdout is a terminal`,
+  )
+  .action(async (mediaId: string, opts: { dryRun: boolean; yes: boolean }) => {
+    const api = await client();
+    if (opts.dryRun) {
+      // The list is the only read of a single upload; page until found.
+      let target: { id: string } | undefined;
+      let cursor: string | null = null;
+      do {
+        const q = new URLSearchParams({ limit: "100" });
+        if (cursor) q.set("cursor", cursor);
+        const page: { media: Array<{ id: string }>; nextCursor: string | null } = await api.get(`/v1/media?${q.toString()}`);
+        target = page.media.find((m) => m.id === mediaId);
+        cursor = page.nextCursor;
+      } while (!target && cursor);
+      emit({
+        dryRun: true,
+        mediaId,
+        found: Boolean(target),
+        media: target ?? null,
+        request: { method: "DELETE", path: `/v1/media/${mediaId}` },
+      });
+      if (!target) process.exitCode = EXIT.notFound;
+      return;
+    }
+    if (!opts.yes && process.stdout.isTTY) {
+      throw new CliError(
+        `deleting media is irreversible and its public URL stops working. Re-run with --yes to confirm:\n  faden media rm ${mediaId} --yes`,
+        EXIT.validation,
+      );
+    }
+    emit(await api.delete(`/v1/media/${encodeURIComponent(mediaId)}`));
+    hint("faden media list");
   });
 
 // ---------------------------------------------------------------------------

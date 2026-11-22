@@ -85,6 +85,7 @@ describe("the faden skill stays true to the CLI", () => {
       "location_required",
       "validation_failed",
       "account_not_connected",
+      "media_in_use", // API 409 from DELETE /v1/media/:id
       "google_business",
       "fdn_live_",
     ]);

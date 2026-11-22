@@ -210,6 +210,34 @@ export const TOOLS: ToolDef[] = [
       uploadMedia(client, args.filePath as string, args.mimeType as string | undefined),
   },
   {
+    name: "list_media",
+    description:
+      "List uploaded media newest-first with size, status and the posts using each (cursor " +
+      "pagination). Use it to find uploads to delete when the media storage quota is full.",
+    schema: z
+      .object({
+        limit: z.number().int().min(1).max(100).optional().describe("Page size (default 20)"),
+        cursor: z.string().optional().describe("nextCursor from the previous page"),
+      })
+      .strict(),
+    handler: (client, args) => {
+      const query = new URLSearchParams();
+      for (const [key, value] of Object.entries(args)) {
+        if (value !== undefined) query.set(key, String(value));
+      }
+      const qs = query.toString();
+      return client.get(`/v1/media${qs ? `?${qs}` : ""}`);
+    },
+  },
+  {
+    name: "delete_media",
+    description:
+      "Delete an uploaded file and free its storage. Irreversible: its public URL stops working. " +
+      "Fails with media_in_use (listing the posts) while a draft, scheduled or publishing post uses it.",
+    schema: z.object({ mediaId: z.string().min(1).describe("Media id from list_media or upload_media") }).strict(),
+    handler: (client, args) => client.delete(`/v1/media/${encodeURIComponent(args.mediaId as string)}`),
+  },
+  {
     name: "get_usage",
     description:
       "Workspace consumption against the plan's quotas. Check this before a bulk run: a post that " +

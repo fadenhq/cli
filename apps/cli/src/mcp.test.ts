@@ -46,10 +46,12 @@ describe("faden MCP server", () => {
         "cancel_post",
         "connect_account",
         "create_post",
+        "delete_media",
         "disconnect_account",
         "get_post_status",
         "get_usage",
         "list_accounts",
+        "list_media",
         "list_platform_constraints",
         "list_posts",
         "list_queue_slots",
@@ -131,6 +133,8 @@ describe("faden MCP server", () => {
     await client.callTool({ name: "cancel_post", arguments: { postId: "p-9" } });
     await client.callTool({ name: "connect_account", arguments: { platform: "threads" } });
     await client.callTool({ name: "list_accounts", arguments: {} });
+    await client.callTool({ name: "list_media", arguments: { limit: 50, cursor: "c1" } });
+    await client.callTool({ name: "delete_media", arguments: { mediaId: "m-1" } });
 
     expect(api.calls).toEqual([
       { method: "GET", path: "/v1/posts/p-9" },
@@ -139,6 +143,8 @@ describe("faden MCP server", () => {
       { method: "DELETE", path: "/v1/posts/p-9" },
       { method: "POST", path: "/v1/accounts/threads/connect", body: undefined },
       { method: "GET", path: "/v1/accounts" },
+      { method: "GET", path: "/v1/media?limit=50&cursor=c1" },
+      { method: "DELETE", path: "/v1/media/m-1" },
     ]);
   });
 

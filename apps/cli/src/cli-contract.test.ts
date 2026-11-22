@@ -215,6 +215,7 @@ describe("--dry-run never changes anything", () => {
     routes["GET /v1/posts/pst_1"] = { status: 200, body: { id: "pst_1", status: "draft" } };
     routes["GET /v1/keys"] = { status: 200, body: { keys: [{ id: "key_1" }] } };
     routes["GET /v1/webhooks"] = { status: 200, body: { webhooks: [{ id: "wh_1" }] } };
+    routes["GET /v1/media"] = { status: 200, body: { media: [{ id: "med_1", posts: [] }], nextCursor: null } };
     routes["GET /v1/queue"] = { status: 200, body: { timezone: "UTC", slots: [] } };
     routes["GET /v1/accounts"] = { status: 200, body: { accounts: [{ id: "acc_1", handle: "main-brand", platform: "x", status: "active" }] } };
   }
@@ -228,6 +229,7 @@ describe("--dry-run never changes anything", () => {
     ["posts cancel", ["posts", "cancel", "pst_1", "--dry-run"]],
     ["keys revoke", ["keys", "revoke", "key_1", "--dry-run"]],
     ["webhooks rm", ["webhooks", "rm", "wh_1", "--dry-run"]],
+    ["media rm", ["media", "rm", "med_1", "--dry-run"]],
     ["accounts disconnect", ["accounts", "disconnect", "main-brand", "--dry-run"]],
     ["queue set", ["queue", "set", "-z", "UTC", "-s", "mon@09:00", "--dry-run"]],
     ["bulk import", ["bulk", "import", csv, "--dry-run"]],

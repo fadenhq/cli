@@ -391,6 +391,16 @@ export const updateWebhookSchema = z
 
 export type UpdateWebhookInput = z.infer<typeof updateWebhookSchema>;
 
+/** Query of `GET /v1/media`: uploaded assets, newest first, cursor pagination. */
+export const listMediaQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    cursor: z.string().optional(),
+  })
+  .strict();
+
+export type ListMediaQuery = z.infer<typeof listMediaQuerySchema>;
+
 /** Query of `GET /v1/webhooks/:id/deliveries`: state filter + cursor pagination. */
 export const listWebhookDeliveriesQuerySchema = z
   .object({
