@@ -24,6 +24,23 @@ export type Platform = (typeof PLATFORMS)[number];
  */
 export const CREDENTIAL_CONNECT_PLATFORMS = ["bluesky"] as const satisfies readonly Platform[];
 
+/**
+ * OAuth scopes faden needs to post media, per platform. Accounts connected before a scope was added
+ * (X's `media.write`, #157) must reconnect to grant it; text-only posts still work without it.
+ */
+export const MEDIA_SCOPES: Partial<Record<Platform, readonly string[]>> = { x: ["media.write"] };
+
+/**
+ * Media scopes an account's stored grant lacks. `scopes` is the space-separated grant from the
+ * token response; null (not recorded) is treated as unknown, so nothing is reported missing.
+ */
+export function missingMediaScopes(platform: string, scopes: string | null | undefined): string[] {
+  const needed = MEDIA_SCOPES[platform as Platform];
+  if (!needed || scopes == null) return [];
+  const granted = new Set(scopes.split(/[\s,]+/).filter(Boolean));
+  return needed.filter((s) => !granted.has(s));
+}
+
 export function isPlatform(value: string): value is Platform {
   return (PLATFORMS as readonly string[]).includes(value);
 }

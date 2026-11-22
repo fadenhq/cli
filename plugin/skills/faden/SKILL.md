@@ -99,7 +99,9 @@ create_post {
 **Media:** platforms fetch media by URL, so files must be publicly reachable. Upload local files
 first with `upload_media { "filePath": "/abs/path.jpg" }` → returns the `publicUrl` to put in
 `mediaUrls`. Instagram, TikTok, YouTube and Pinterest all require media. The Instagram feed accepts only JPEG
-images, and Pinterest is image-only. Uploads count toward the storage quota until deleted:
+images, and Pinterest is image-only. An account whose `list_accounts` entry has a non-empty
+`missingScopes` (X accounts connected before media support) can post text but not media: pre-flight
+rejects media posts to it with `account_reconnect_required`. Ask the user to reconnect it. Uploads count toward the storage quota until deleted:
 `list_media` shows each upload with its size and the posts using it, and `delete_media` frees one
 (CLI: `npx @fadenhq/cli media list`, `media rm <id> --dry-run`). Deleting is irreversible and
 breaks its public URL; it is refused (`media_in_use`) while a draft or scheduled post uses it. Only
