@@ -119,6 +119,10 @@ posts may add a CTA button: `ctaType` (BOOK/ORDER/SHOP/LEARN_MORE/SIGN_UP/CALL) 
 results with `get_post_status`. Each target reports `status` (pending/publishing/completed/failed),
 the platform-native post id, and a stable `errorCode` on failure.
 
+**Drafts-only workspaces:** if a create without `"draft": true` fails with `403 drafts_only`, the
+workspace requires a person to approve agent posts. Create a draft instead and tell the user it's
+waiting for approval in the dashboard; don't try to approve it yourself.
+
 **Edit or cancel before publish:** drafts and scheduled posts only, `update_post` / `cancel_post`
 (CLI: `npx @fadenhq/cli posts edit <id> …` / `npx @fadenhq/cli posts cancel <id>`). Once a post is `publishing` it can no longer be changed.
 
