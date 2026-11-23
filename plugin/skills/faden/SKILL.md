@@ -151,4 +151,4 @@ removes faden's record only; what was published stays on the platforms.
 `post_analytics { "postId": "…" }` (CLI: `npx @fadenhq/cli posts analytics <postId>`) returns the latest
 snapshot plus a time series per platform target. Metrics are integers or `null`, where `null` means
 the platform does not expose that metric. Never report it as 0. Snapshots start after a post
-completes (hourly on day one, then daily), so a just-published post may have an empty series.
+completes (hourly on day one, then daily; X only at 1 h, 1 day and 7 days), so a just-published post may have an empty series.
