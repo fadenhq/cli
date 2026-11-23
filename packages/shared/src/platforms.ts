@@ -82,6 +82,24 @@ export const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm
 export const ACCEPTED_MEDIA_TYPES = [...ACCEPTED_IMAGE_TYPES, ...ACCEPTED_VIDEO_TYPES] as const;
 export type AcceptedMediaType = (typeof ACCEPTED_MEDIA_TYPES)[number];
 
+/**
+ * Uploads (#160): Cloudflare caps a request body at 100 MB, so a file larger than
+ * `MEDIA_SINGLE_UPLOAD_MAX_BYTES` goes up in parts of `MEDIA_PART_SIZE_BYTES` (the last part
+ * holds the remainder) via `POST /v1/media/{id}/multipart`.
+ */
+export const MEDIA_PART_SIZE_BYTES = 50 * MB;
+export const MEDIA_SINGLE_UPLOAD_MAX_BYTES = 90 * MB;
+
+/** How many parts a multipart upload of `sizeBytes` has. */
+export function mediaPartCount(sizeBytes: number): number {
+  return Math.max(1, Math.ceil(sizeBytes / MEDIA_PART_SIZE_BYTES));
+}
+
+/** Byte length of part `partNumber` (1-based) of a `sizeBytes` upload. */
+export function mediaPartSize(sizeBytes: number, partNumber: number): number {
+  return Math.min(MEDIA_PART_SIZE_BYTES, sizeBytes - (partNumber - 1) * MEDIA_PART_SIZE_BYTES);
+}
+
 export function isAcceptedMediaType(value: string): value is AcceptedMediaType {
   return (ACCEPTED_MEDIA_TYPES as readonly string[]).includes(value);
 }

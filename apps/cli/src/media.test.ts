@@ -50,6 +50,38 @@ describe("uploadMedia", () => {
     expect(result.mimeType).toBe("video/mp4");
   });
 
+  it("uploads a file the API flags as multipart in parts, then completes with every etag (#160)", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "faden-media-"));
+    const file = join(dir, "big.mp4");
+    const bytes = Buffer.from(Array.from({ length: 10 }, (_, i) => i));
+    await writeFile(file, bytes);
+
+    const post = vi.fn(async (path: string) => {
+      if (path === "/v1/media") return { mediaId: "m", publicUrl: "u", multipart: true };
+      if (path === "/v1/media/m/multipart") return { partSizeBytes: 4, partCount: 3 };
+      return { mediaId: "m", publicUrl: "u", sizeBytes: 10 };
+    });
+    const sent: Array<[string, number[]]> = [];
+    const putRaw = vi.fn(async (path: string, body: Uint8Array) => {
+      sent.push([path, [...body]]);
+      return { partNumber: sent.length, etag: `e${sent.length}` };
+    });
+    await uploadMedia({ post, putRaw } as unknown as ApiClient, file);
+
+    expect(sent).toEqual([
+      ["/v1/media/m/parts/1", [0, 1, 2, 3]],
+      ["/v1/media/m/parts/2", [4, 5, 6, 7]],
+      ["/v1/media/m/parts/3", [8, 9]],
+    ]);
+    expect(post).toHaveBeenLastCalledWith("/v1/media/m/multipart/complete", {
+      parts: [
+        { partNumber: 1, etag: "e1" },
+        { partNumber: 2, etag: "e2" },
+        { partNumber: 3, etag: "e3" },
+      ],
+    });
+  });
+
   it("reports an unreadable file as a validation error, not a crash", async () => {
     const api = { post: vi.fn(), putRaw: vi.fn() } as unknown as ApiClient;
     await expect(uploadMedia(api, "/definitely/not/here.png")).rejects.toThrow(/cannot read/);

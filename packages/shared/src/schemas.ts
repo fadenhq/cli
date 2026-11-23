@@ -431,6 +431,16 @@ export const registerMediaSchema = z
   })
   .strict();
 
+/** Body of `POST /v1/media/{id}/multipart/complete`: every part's number and the etag its PUT returned. */
+export const completeMultipartSchema = z
+  .object({
+    parts: z
+      .array(z.object({ partNumber: z.number().int().min(1), etag: z.string().min(1) }).strict())
+      .min(1)
+      .max(10000),
+  })
+  .strict();
+
 /** One row of a bulk CSV import after parsing. */
 export const bulkRowSchema = z
   .object({
