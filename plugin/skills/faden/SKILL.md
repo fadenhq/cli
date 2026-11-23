@@ -122,6 +122,12 @@ the platform-native post id, and a stable `errorCode` on failure.
 **Edit or cancel before publish:** drafts and scheduled posts only, `update_post` / `cancel_post`
 (CLI: `npx @fadenhq/cli posts edit <id> …` / `npx @fadenhq/cli posts cancel <id>`). Once a post is `publishing` it can no longer be changed.
 
+**Retry after a failure:** when a post ends `failed` or `partial`, fix the cause first (reconnect a
+revoked account with `connect_account`), then `retry_post { "postId": "…" }` re-publishes only the
+failed targets (optionally `"targets": ["<handle>"]`). Completed targets are never re-sent, so this
+never double-posts (CLI: `npx @fadenhq/cli posts retry <id>`). `cancel_post` on a finished post
+removes faden's record only; what was published stays on the platforms.
+
 ## Error handling
 
 - `422 validation_failed` lists per-platform pre-flight issues (`content_too_long`,

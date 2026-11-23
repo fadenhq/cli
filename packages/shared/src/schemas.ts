@@ -235,6 +235,15 @@ export const approvePostSchema = z
   .object({ scheduledFor: isoDateTimeSchema.optional() })
   .strict();
 
+/** Body of `POST /v1/posts/:id/retry`: which targets to retry, by account id or handle (default: every failed one). */
+export const retryPostSchema = z
+  .object({
+    targets: z.array(z.string().min(1)).min(1).max(100).optional(),
+  })
+  .strict();
+
+export type RetryPostInput = z.infer<typeof retryPostSchema>;
+
 /** Query of `GET /v1/posts`: filters + cursor pagination. */
 export const listPostsQuerySchema = z
   .object({
@@ -427,10 +436,18 @@ export const bulkRowSchema = z
   .object({
     content: z.string().max(63206).default(""),
     platforms: z.array(platformSchema).min(1),
+    /** Narrow the fan-out to these accounts (ids or handles), like `accountIds` on a create (#163). */
+    accountIds: z.array(z.string().min(1)).min(1).optional(),
     mediaUrls: z.array(mediaUrlSchema).max(10).default([]),
     scheduledFor: isoDateTimeSchema.optional(),
     timezone: timezoneSchema.optional(),
+    /** Store as a draft: counts toward the post quota only when approved. */
+    draft: z.boolean().default(false),
+    /** Take the next free posting-queue slot; rows in one import take consecutive free slots. */
+    useQueue: z.boolean().default(false),
   })
-  .strict();
+  .strict()
+  .refine((v) => !(v.useQueue && v.scheduledFor), "queue and scheduledFor are mutually exclusive")
+  .refine((v) => !(v.useQueue && v.draft), "queue rows schedule immediately; drafts can't sit in the queue");
 
 export type BulkRowInput = z.infer<typeof bulkRowSchema>;

@@ -104,9 +104,23 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: "cancel_post",
-    description: "Cancel a scheduled or draft post (not one already publishing or finished).",
+    description:
+      "Cancel a scheduled or draft post, or clear a finished (completed/partial/failed) one from faden. " +
+      "Clearing removes only faden's record: anything published stays on the platforms. Fails while publishing.",
     schema: postIdSchema,
     handler: (client, args) => client.delete(`/v1/posts/${encodeURIComponent(args.postId as string)}`),
+  },
+  {
+    name: "retry_post",
+    description:
+      "Re-publish a failed or partial post's failed targets (all, or the accounts listed in targets by " +
+      "id or handle). Completed targets are never re-sent. Fails with account_reconnect_required when a " +
+      "target's account was revoked: have the user reconnect it (connect_account) first.",
+    schema: postIdSchema.extend({
+      targets: z.array(z.string().min(1)).min(1).optional().describe("Account ids or handles to retry; default every failed target"),
+    }),
+    handler: (client, args) =>
+      client.post(`/v1/posts/${encodeURIComponent(args.postId as string)}/retry`, args.targets ? { targets: args.targets } : {}),
   },
   {
     name: "approve_post",

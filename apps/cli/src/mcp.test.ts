@@ -56,6 +56,7 @@ describe("faden MCP server", () => {
         "list_posts",
         "list_queue_slots",
         "post_analytics",
+        "retry_post",
         "set_queue_slots",
         "update_post",
         "upload_media",
@@ -131,6 +132,7 @@ describe("faden MCP server", () => {
     await client.callTool({ name: "list_posts", arguments: { status: "scheduled", limit: 5 } });
     await client.callTool({ name: "update_post", arguments: { postId: "p-9", content: "edited" } });
     await client.callTool({ name: "cancel_post", arguments: { postId: "p-9" } });
+    await client.callTool({ name: "retry_post", arguments: { postId: "p-9", targets: ["main"] } });
     await client.callTool({ name: "connect_account", arguments: { platform: "threads" } });
     await client.callTool({ name: "list_accounts", arguments: {} });
     await client.callTool({ name: "list_media", arguments: { limit: 50, cursor: "c1" } });
@@ -141,6 +143,7 @@ describe("faden MCP server", () => {
       { method: "GET", path: "/v1/posts?status=scheduled&limit=5" },
       { method: "PATCH", path: "/v1/posts/p-9", body: { content: "edited" } },
       { method: "DELETE", path: "/v1/posts/p-9" },
+      { method: "POST", path: "/v1/posts/p-9/retry", body: { targets: ["main"] } },
       { method: "POST", path: "/v1/accounts/threads/connect", body: undefined },
       { method: "GET", path: "/v1/accounts" },
       { method: "GET", path: "/v1/media?limit=50&cursor=c1" },

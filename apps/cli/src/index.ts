@@ -477,6 +477,11 @@ Examples:
 // posts
 // ---------------------------------------------------------------------------
 
+/** Commander collector for a repeatable option. */
+function collectList(value: string, prev: string[]): string[] {
+  return [...prev, value];
+}
+
 const postsCmd = program.command("posts").description("Create, inspect and manage posts");
 
 postsCmd.addCommand(makePostCreateCommand("create"));
@@ -663,7 +668,9 @@ program.addCommand(makeApproveCommand("approve", " (alias for `faden posts appro
 
 postsCmd
   .command("cancel <postId>")
-  .description("Cancel a scheduled or draft post (not one already publishing or finished)")
+  .description(
+    "Cancel a scheduled or draft post, or clear a finished one from faden (published posts stay on the platforms)",
+  )
   .option("--dry-run", "show what would be cancelled without cancelling", false)
   .addHelpText(
     "after",
@@ -671,23 +678,69 @@ postsCmd
 Examples:
   faden posts cancel pst_abc123
   faden posts cancel pst_abc123 --dry-run
-  faden posts list --status scheduled | jq -r '.posts[].id'   pick one to cancel`,
+  faden posts list --status scheduled | jq -r '.posts[].id'   pick one to cancel
+  faden posts cancel pst_failed1      a failed post: removes faden's record only`,
   )
   .action(async (postId: string, opts: { dryRun: boolean }) => {
     const api = await client();
     if (opts.dryRun) {
       const post = await api.get<{ status: string }>(`/v1/posts/${postId}`);
+      const cancels = post.status === "draft" || post.status === "scheduled";
+      const clears = post.status === "completed" || post.status === "partial" || post.status === "failed";
       emit({
         dryRun: true,
         postId,
         currentStatus: post.status,
-        wouldCancel: post.status === "draft" || post.status === "scheduled",
+        wouldCancel: cancels,
+        wouldClear: clears,
+        ...(clears ? { note: "only faden's record is removed; anything published stays on the platforms" } : {}),
         request: { method: "DELETE", path: `/v1/posts/${postId}` },
       });
       return;
     }
     emit(await api.delete(`/v1/posts/${postId}`));
-    hint("faden posts list --status scheduled");
+    hint("faden posts list");
+  });
+
+postsCmd
+  .command("retry <postId>")
+  .description("Re-publish a failed or partial post's failed targets (completed ones are never re-sent)")
+  .option("--target <account>", "retry only this account's target (id or handle); repeatable", collectList, [])
+  .option("--dry-run", "show which targets would be retried without retrying", false)
+  .addHelpText(
+    "after",
+    `
+Examples:
+  faden posts retry pst_abc123                       every failed target
+  faden posts retry pst_abc123 --target acme-main    just one account
+  faden posts retry pst_abc123 --dry-run
+
+Reconnect a revoked account first (faden accounts connect <platform>); the retry refuses it otherwise.`,
+  )
+  .action(async (postId: string, opts: { target: string[]; dryRun: boolean }) => {
+    const api = await client();
+    if (opts.dryRun) {
+      const post = await api.get<{
+        status: string;
+        targets: Array<{ accountId: string; handle?: string | null; platform: string; status: string; errorCode?: string | null }>;
+      }>(`/v1/posts/${postId}`);
+      const picked = post.targets.filter(
+        (t) =>
+          t.status === "failed" &&
+          (opts.target.length === 0 || opts.target.includes(t.accountId) || (t.handle != null && opts.target.includes(t.handle))),
+      );
+      emit({
+        dryRun: true,
+        postId,
+        currentStatus: post.status,
+        wouldRetry: picked,
+        request: { method: "POST", path: `/v1/posts/${postId}/retry`, body: opts.target.length > 0 ? { targets: opts.target } : {} },
+      });
+      if (picked.length === 0) process.exitCode = EXIT.validation;
+      return;
+    }
+    emit(await api.post(`/v1/posts/${postId}/retry`, opts.target.length > 0 ? { targets: opts.target } : {}));
+    hint(`faden posts get ${postId}`);
   });
 
 interface AnalyticsTeaser {
@@ -1285,17 +1338,26 @@ bulk
   .command("import <file>")
   .description('Import a CSV of posts (validated as a batch, so any bad row rejects all). "-" reads stdin')
   .option("--dry-run", "print the parsed CSV without creating anything", false)
+  .option("--idempotency-key <key>", "retrying with the same key returns the first import's posts instead of importing again")
   .addHelpText(
     "after",
     `
+Columns (header row, any order): content, platforms, accounts, mediaUrls, scheduledFor, timezone, draft, queue
+  platforms   x;linkedin            every name must be valid, or the row is rejected
+  accounts    acme-main;acc_123     account handles or ids, to target one of several on a platform
+  draft       true                  store as a draft (counts toward quota only when approved)
+  queue       true                  take the next free queue slot (rows fill consecutive slots)
+Lists use ; or | separators.
+
 Examples:
   faden bulk import posts.csv
   cat posts.csv | faden bulk import -
   faden bulk import posts.csv --dry-run
+  faden bulk import posts.csv --idempotency-key launch-week   safe to retry after a timeout
 
-Any invalid row rejects the whole batch, so an import is all-or-nothing and safe to retry.`,
+Any invalid row rejects the whole batch, so an import is all-or-nothing.`,
   )
-  .action(async (file: string, opts: { dryRun: boolean }) => {
+  .action(async (file: string, opts: { dryRun: boolean; idempotencyKey?: string }) => {
     const csv = await resolveInput(file === "-" ? "-" : `@${file}`);
     if (opts.dryRun) {
       const rows = csv.split("\n").filter((line) => line.trim().length > 0);
@@ -1308,7 +1370,12 @@ Any invalid row rejects the whole batch, so an import is all-or-nothing and safe
       return;
     }
     const api = await client();
-    emit(await api.postRaw("/v1/posts/bulk", csv, { contentType: "text/csv" }));
+    emit(
+      await api.postRaw("/v1/posts/bulk", csv, {
+        contentType: "text/csv",
+        headers: opts.idempotencyKey ? { "idempotency-key": opts.idempotencyKey } : undefined,
+      }),
+    );
     hint("faden posts list");
   });
 

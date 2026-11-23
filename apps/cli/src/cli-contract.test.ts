@@ -212,7 +212,11 @@ describe("requests", () => {
 describe("--dry-run never changes anything", () => {
   /** GETs answer with enough shape for every dry-run to complete; any other method is a failure. */
   function scriptReads() {
-    routes["GET /v1/posts/pst_1"] = { status: 200, body: { id: "pst_1", status: "draft" } };
+    routes["GET /v1/posts/pst_1"] = { status: 200, body: { id: "pst_1", status: "draft", targets: [] } };
+    routes["GET /v1/posts/pst_2"] = {
+      status: 200,
+      body: { id: "pst_2", status: "failed", targets: [{ accountId: "acc_1", platform: "x", status: "failed" }] },
+    };
     routes["GET /v1/keys"] = { status: 200, body: { keys: [{ id: "key_1" }] } };
     routes["GET /v1/webhooks"] = { status: 200, body: { webhooks: [{ id: "wh_1" }] } };
     routes["GET /v1/media"] = { status: 200, body: { media: [{ id: "med_1", posts: [] }], nextCursor: null } };
@@ -227,6 +231,7 @@ describe("--dry-run never changes anything", () => {
     ["posts create", ["posts", "create", "-p", "x", "-c", "hi", "--dry-run"]],
     ["posts approve", ["posts", "approve", "pst_1", "--dry-run"]],
     ["posts cancel", ["posts", "cancel", "pst_1", "--dry-run"]],
+    ["posts retry", ["posts", "retry", "pst_2", "--dry-run"]],
     ["keys revoke", ["keys", "revoke", "key_1", "--dry-run"]],
     ["webhooks rm", ["webhooks", "rm", "wh_1", "--dry-run"]],
     ["media rm", ["media", "rm", "med_1", "--dry-run"]],
